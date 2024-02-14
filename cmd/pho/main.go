@@ -62,7 +62,6 @@ func run() error {
 
 	ctx := context.Background()
 
-	fmt.Println(",.,.", *dbPtr)
 	p := pho.NewApp(
 		pho.WithURI(uri),
 		pho.WithDatabase(*dbPtr),

@@ -11,12 +11,14 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"pho/pkg/hashing"
 	"pho/pkg/render"
 )
 
 const (
-	phoDir             = ".pho"
-	phoBufferFileMongo = "BUFFER_MONGO"
+	phoDir       = ".pho"
+	phoStageFile = "_stage"
+	phoMetaFile  = "_meta"
 )
 
 // App represents the Pho app.
@@ -105,6 +107,17 @@ func (app *App) RunQuery(ctx context.Context, query string, limit int64, sort st
 func (app *App) Dump(ctx context.Context, cursor *mongo.Cursor, out io.Writer) error {
 	renderCfg := app.render.GetConfiguration()
 
+	// Create or
+	var hashesFile *os.File
+	if out != os.Stdout {
+		var err error
+		if hashesFile, err = app.setupHashDestination(); err != nil {
+			// todo: it should be a soft error (warning)
+			//       so we still dump data, but not letting to edit it
+			return fmt.Errorf("failed creating hashes file")
+		}
+	}
+
 	lineNumber := 0
 	for cursor.Next(ctx) {
 		var result bson.M
@@ -114,6 +127,21 @@ func (app *App) Dump(ctx context.Context, cursor *mongo.Cursor, out io.Writer) e
 			}
 
 			return fmt.Errorf("failed on decoding line [%d]: %w", lineNumber, err)
+		}
+
+		resultHash, err := hashing.Hash(result)
+		if err != nil {
+			if renderCfg.IgnoreFailures {
+				// todo: reconsider and refactor
+				//       that's not so accurate, as failure is on hashing part
+				//       but IgnoreFailures is a flag of rendering part
+				continue
+			}
+
+			return fmt.Errorf("failed on hashing line [%d]: %w", lineNumber, err)
+		}
+		if _, err := hashesFile.WriteString(resultHash + "\n"); err != nil {
+			return fmt.Errorf("failed on saving hash line [%d]: %w", lineNumber, err)
 		}
 
 		resultBytes, err := app.render.FormatResult(result)
@@ -143,20 +171,46 @@ func (app *App) Dump(ctx context.Context, cursor *mongo.Cursor, out io.Writer) e
 	return nil
 }
 
-// SetupDumpDestination sets up writer (*os.File) for dump to be written in
-func (app *App) SetupDumpDestination() (*os.File, string, error) {
-	// Ensure the .pho directory exists
-	if _, err := os.Stat(phoDir); err != nil {
-		if os.IsNotExist(err) {
-			if err := os.Mkdir(phoDir, 0755); err != nil {
-				return nil, "", fmt.Errorf("could not create pho dir: %w", err)
-			}
-		} else {
-			return nil, "", fmt.Errorf("could not validate pho dir: %w", err)
-		}
+// setupPhoDir ensures .pho directory exists or creates it
+func (app *App) setupPhoDir() error {
+	_, err := os.Stat(phoDir)
+	if err == nil {
+		return nil
+	}
+	if !os.IsNotExist(err) {
+		return fmt.Errorf("could not validate pho dir: %w", err)
 	}
 
-	destinationPath := filepath.Join(phoDir, phoBufferFileMongo)
+	if err := os.Mkdir(phoDir, 0755); err != nil {
+		return fmt.Errorf("could not create pho dir: %w", err)
+	}
+
+	return nil
+}
+
+// setupHashDestination sets up writer (*os.File) for hashes to be written in
+func (app *App) setupHashDestination() (*os.File, error) {
+	if err := app.setupPhoDir(); err != nil {
+		return nil, err
+	}
+
+	destinationPath := filepath.Join(phoDir, phoMetaFile)
+
+	file, err := os.Create(destinationPath) // todo: 0600
+	if err != nil {
+		return nil, fmt.Errorf("failed creating hashes file: %w", err)
+	}
+
+	return file, nil
+}
+
+// SetupDumpDestination sets up writer (*os.File) for dump to be written in
+func (app *App) SetupDumpDestination() (*os.File, string, error) {
+	if err := app.setupPhoDir(); err != nil {
+		return nil, "", err
+	}
+
+	destinationPath := filepath.Join(phoDir, phoStageFile)
 
 	file, err := os.Create(destinationPath)
 	if err != nil {
@@ -166,6 +220,7 @@ func (app *App) SetupDumpDestination() (*os.File, string, error) {
 	return file, destinationPath, nil
 }
 
+// OpenEditor opens file under filePath in given editor
 func (app *App) OpenEditor(editor string, filePath string) error {
 
 	// Depending on which editor is selected, we can have custom args
