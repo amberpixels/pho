@@ -85,7 +85,7 @@ func (app *App) RunQuery(ctx context.Context, query string, limit int64, sort st
 		findOptions.SetSort(parseSort(sort))
 	}
 	if projection != "" {
-		findOptions.SetProjection(parseSort(projection))
+		findOptions.SetProjection(parseProjection(projection))
 	}
 
 	queryBson, err := parseQuery(query)
