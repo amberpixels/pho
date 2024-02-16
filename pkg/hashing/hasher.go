@@ -40,5 +40,5 @@ func Hash(result bson.M) (hash string, err error) {
 		return "", fmt.Errorf("failed to calculate checksum: %w", err)
 	}
 
-	return identifiedBy + ":" + identifier + ":" + checksum, nil
+	return identifiedBy + ":" + identifier + "|" + checksum, nil
 }
