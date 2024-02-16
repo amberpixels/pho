@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"pho/pkg/extjson"
 )
 
 func Hash(result bson.M) (hash string, err error) {
@@ -30,7 +31,7 @@ func Hash(result bson.M) (hash string, err error) {
 		identifier = idTyped.Hex()
 	}
 
-	canonicalExtJson, err := bson.MarshalExtJSON(result, true, false)
+	canonicalExtJson, err := extjson.NewMarshaller(true).Marshal(result)
 	if err != nil {
 		return "", fmt.Errorf("invalid bson result: %w", err)
 	}
