@@ -1,6 +1,6 @@
 package pho
 
-import "pho/pkg/render"
+import "pho/internal/render"
 
 // Option represents an option for configuring the Pho client.
 type Option func(*App)

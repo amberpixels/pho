@@ -5,8 +5,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"pho/pkg/pho"
-	"pho/pkg/render"
+	"pho/internal/pho"
+	"pho/internal/render"
 	"strings"
 )
 
@@ -60,8 +60,6 @@ func run() error {
 		uri = "mongodb://" + uri
 	}
 
-	ctx := context.Background()
-
 	p := pho.NewApp(
 		pho.WithURI(uri),
 		pho.WithDatabase(*dbPtr),
@@ -73,6 +71,8 @@ func run() error {
 			render.WithShowLineNumbers(true),
 		)),
 	)
+
+	ctx := context.Background()
 
 	if err := p.ConnectDB(ctx); err != nil {
 		return fmt.Errorf("failed on connecting to db: %w", err)

@@ -12,7 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"pho/internal/hashing"
-	"pho/pkg/render"
+	"pho/internal/render"
 )
 
 const (
