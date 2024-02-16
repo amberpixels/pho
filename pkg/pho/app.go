@@ -11,7 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"pho/pkg/hashing"
+	"pho/internal/hashing"
 	"pho/pkg/render"
 )
 
