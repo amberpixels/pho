@@ -1,6 +1,7 @@
 package pho
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -13,6 +14,8 @@ import (
 	"path/filepath"
 	"pho/internal/hashing"
 	"pho/internal/render"
+	"pho/pkg/jsonl"
+	"strings"
 )
 
 const (
@@ -25,6 +28,11 @@ const (
 	//       It's important because we want to use the fact that text editors will
 	//       use automatic syntax highlighting
 	phoDumpFile = "_dump.jsonl"
+)
+
+var (
+	ErrNoMeta = fmt.Errorf("meta file is missing")
+	ErrNoDump = fmt.Errorf("dump file is missing")
 )
 
 // App represents the Pho app.
@@ -135,7 +143,7 @@ func (app *App) Dump(ctx context.Context, cursor *mongo.Cursor, out io.Writer) e
 			return fmt.Errorf("failed on decoding line [%d]: %w", lineNumber, err)
 		}
 
-		resultHash, err := hashing.Hash(result)
+		resultHashData, err := hashing.Hash(result)
 		if err != nil {
 			if renderCfg.IgnoreFailures {
 				// todo: reconsider and refactor
@@ -146,7 +154,7 @@ func (app *App) Dump(ctx context.Context, cursor *mongo.Cursor, out io.Writer) e
 
 			return fmt.Errorf("failed on hashing line [%d]: %w", lineNumber, err)
 		}
-		if _, err := hashesFile.WriteString(resultHash + "\n"); err != nil {
+		if _, err := hashesFile.WriteString(resultHashData.String() + "\n"); err != nil {
 			return fmt.Errorf("failed on saving hash line [%d]: %w", lineNumber, err)
 		}
 
@@ -249,6 +257,136 @@ func (app *App) OpenEditor(editor string, filePath string) error {
 
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("cmd.Run failed: %w", err)
+	}
+
+	return nil
+}
+
+func (app *App) readMeta() (*ParsedMeta, error) {
+	if err := app.setupPhoDir(); err != nil {
+		return nil, err
+	}
+
+	metaFilePath := filepath.Join(phoDir, phoMetaFile)
+	metaReader, err := os.Open(metaFilePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("could not open: %w", ErrNoMeta)
+		}
+
+		return nil, fmt.Errorf("could not open: %w", err)
+	}
+
+	var iLine int
+	meta := map[string]*hashing.HashData{}
+	scanner := bufio.NewScanner(metaReader)
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		parsed, err := hashing.Parse(line)
+		if err != nil {
+			return nil, fmt.Errorf("corrupted line#%d: corrupted meta line: %w", iLine, err)
+		}
+
+		parts := strings.Split(line, "|")
+		if len(parts) != 2 {
+		}
+		meta[parsed.GetIdentifier()] = parsed
+		iLine++
+	}
+
+	return &ParsedMeta{Lines: meta}, nil
+}
+
+func (app *App) readDump() ([]bson.M, error) {
+	if err := app.setupPhoDir(); err != nil {
+		return nil, err
+	}
+
+	dumpFilePath := filepath.Join(phoDir, phoDumpFile)
+	dumpReader, err := os.Open(dumpFilePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("could not open dump: %w", ErrNoMeta)
+		}
+		return nil, fmt.Errorf("could not open dump: %w", err)
+	}
+
+	raws, err := jsonl.DecodeAll[DumpDoc](dumpReader)
+	if err != nil {
+		return nil, fmt.Errorf("could not decode dump: %w", err)
+	}
+
+	results := make([]bson.M, len(raws), len(raws))
+	for i, raw := range raws {
+		results[i] = bson.M(raw)
+	}
+	return results, nil
+}
+
+func (app *App) extractChanges() (Changes, error) {
+	meta, err := app.readMeta()
+	if err != nil {
+		return nil, fmt.Errorf("failed on reading meta: %w", err)
+	}
+
+	dump, err := app.readDump()
+	if err != nil {
+		return nil, fmt.Errorf("failed on reading dump: %w", err)
+	}
+
+	changes := make(Changes, len(dump), len(dump))
+
+	idsMet := make(map[string]struct{})
+	for i, obj := range dump {
+		hashData, err := hashing.Hash(obj)
+		if err != nil {
+			return nil, fmt.Errorf("corrupted obj[%d] could not hash: %w", i, err)
+		}
+		checksumAfter := hashData.GetChecksum()
+
+		//slog.Log(context.Background(), slog.LevelInfo, "AFTER "+hashData.String())
+
+		id := hashData.GetIdentifier()
+		idsMet[id] = struct{}{}
+
+		if hashDataBefore, ok := meta.Lines[id]; ok {
+			//slog.Log(context.Background(), slog.LevelInfo, "BEFORE "+checksumBefore)
+
+			if hashDataBefore.GetChecksum() == checksumAfter {
+				changes[i] = NewChange(hashData, Actions.Noop)
+			} else {
+				changes[i] = NewChange(hashData, Actions.Updated)
+			}
+		} else {
+			changes[i] = NewChange(hashData, Actions.Added)
+		}
+	}
+
+	for existedBeforeIdentifier, hashData := range meta.Lines {
+		if _, ok := idsMet[existedBeforeIdentifier]; ok {
+			continue
+		}
+
+		changes = append(changes, NewChange(hashData, Actions.Deleted))
+	}
+
+	return changes, nil
+}
+
+func (app *App) ReviewChanges() error {
+	changes, err := app.extractChanges()
+	if err != nil {
+		if errors.Is(err, ErrNoMeta) || errors.Is(err, ErrNoDump) {
+			return fmt.Errorf("no dump data to be reviewed")
+		}
+		return fmt.Errorf("failed on extracting changes: %w", err)
+	}
+
+	fmt.Println("Effective changes: ", changes.EffectiveCount())
+
+	for _, effCh := range changes.Effective() {
+		fmt.Println(effCh.hash.GetIdentifier(), " -> ", effCh.action)
 	}
 
 	return nil

@@ -41,6 +41,8 @@ func run() error {
 	editPtr := flag.String("edit", "vim", "Edit results in the editor")
 	flag.StringVar(editPtr, "e", "", "Shorthand for --edit")
 
+	reviewChangesPtr := flag.Bool("review-changes", false, "Review changes")
+
 	flag.Parse()
 
 	// if nothing was specified, let's fallback to a default URI
@@ -71,6 +73,13 @@ func run() error {
 			render.WithShowLineNumbers(true),
 		)),
 	)
+
+	if *reviewChangesPtr {
+		if err := p.ReviewChanges(); err != nil {
+			return fmt.Errorf("failed on reviewing changes: %w", err)
+		}
+		return nil
+	}
 
 	ctx := context.Background()
 
