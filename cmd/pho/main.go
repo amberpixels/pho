@@ -97,7 +97,7 @@ func run() error {
 	// Prepare buffer file
 	// editor will open this file
 
-	out, destinationPath, err := p.SetupDumpDestination()
+	out, dumpPath, err := p.SetupDumpDestination()
 	if err != nil {
 		return fmt.Errorf("failed on setting dump destination: %w", err)
 	}
@@ -107,7 +107,7 @@ func run() error {
 		return fmt.Errorf("failed on dumping: %w", err)
 	}
 
-	if err := p.OpenEditor(*editPtr, destinationPath); err != nil {
+	if err := p.OpenEditor(*editPtr, dumpPath); err != nil {
 		return fmt.Errorf("failed on opening [%s]: %w", *editPtr, err)
 	}
 

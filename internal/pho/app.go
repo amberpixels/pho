@@ -16,9 +16,15 @@ import (
 )
 
 const (
-	phoDir       = ".pho"
-	phoStageFile = "_stage"
-	phoMetaFile  = "_meta"
+	phoDir      = ".pho"
+	phoMetaFile = "_meta"
+
+	// TODO: file extension should be handled automatically
+	//       it should be switched from .jsonl to .json
+	//       depending on output
+	//       It's important because we want to use the fact that text editors will
+	//       use automatic syntax highlighting
+	phoDumpFile = "_dump.jsonl"
 )
 
 // App represents the Pho app.
@@ -210,7 +216,7 @@ func (app *App) SetupDumpDestination() (*os.File, string, error) {
 		return nil, "", err
 	}
 
-	destinationPath := filepath.Join(phoDir, phoStageFile)
+	destinationPath := filepath.Join(phoDir, phoDumpFile)
 
 	file, err := os.Create(destinationPath)
 	if err != nil {
