@@ -6,6 +6,10 @@ import (
 )
 
 type ParsedMeta struct {
+	// todo:
+	// db name
+	// collection name
+	// ExtJSON params
 
 	// Lines are hashes per identifier.
 	// Identifier here is considered to be identified_by field + identifier value
@@ -30,8 +34,9 @@ var Actions = struct {
 }
 
 type Change struct {
-	hash   *hashing.HashData
-	action Action
+	hash    *hashing.HashData
+	action  Action
+	command string // string for now
 }
 type Changes []*Change
 
@@ -59,8 +64,8 @@ func (chs Changes) EffectiveCount() int {
 	return count
 }
 
-func NewChange(hashData *hashing.HashData, action Action) *Change {
-	return &Change{hash: hashData, action: action}
+func NewChange(hashData *hashing.HashData, action Action, command string) *Change {
+	return &Change{hash: hashData, action: action, command: command}
 }
 
 type DumpDoc bson.M

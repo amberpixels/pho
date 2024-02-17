@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"pho/internal/hashing"
 	"pho/internal/render"
+	"pho/pkg/extjson"
 	"pho/pkg/jsonl"
 	"strings"
 )
@@ -354,12 +355,20 @@ func (app *App) extractChanges() (Changes, error) {
 			//slog.Log(context.Background(), slog.LevelInfo, "BEFORE "+checksumBefore)
 
 			if hashDataBefore.GetChecksum() == checksumAfter {
-				changes[i] = NewChange(hashData, Actions.Noop)
+				changes[i] = NewChange(hashData, Actions.Noop, "")
 			} else {
-				changes[i] = NewChange(hashData, Actions.Updated)
+				identifiedBy, identifierValue := hashData.GetIdentifierParts()
+				objData, _ := extjson.NewMarshaller(true).Marshal(obj)
+				cmd := fmt.Sprintf(`db.getCollection("%s").updateOne({%s:"%s"},{$set:%s})`,
+					"test", // todo collection name
+					identifiedBy,
+					identifierValue,
+					string(objData),
+				)
+				changes[i] = NewChange(hashData, Actions.Updated, cmd)
 			}
 		} else {
-			changes[i] = NewChange(hashData, Actions.Added)
+			changes[i] = NewChange(hashData, Actions.Added, "")
 		}
 	}
 
@@ -368,7 +377,7 @@ func (app *App) extractChanges() (Changes, error) {
 			continue
 		}
 
-		changes = append(changes, NewChange(hashData, Actions.Deleted))
+		changes = append(changes, NewChange(hashData, Actions.Deleted, ""))
 	}
 
 	return changes, nil
@@ -387,6 +396,14 @@ func (app *App) ReviewChanges() error {
 
 	for _, effCh := range changes.Effective() {
 		fmt.Println(effCh.hash.GetIdentifier(), " -> ", effCh.action)
+	}
+
+	for _, effCh := range changes.Effective() {
+		if effCh.command != "" {
+			fmt.Println(effCh.command)
+		} else {
+			fmt.Println("..")
+		}
 	}
 
 	return nil

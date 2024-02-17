@@ -57,6 +57,10 @@ type HashData struct {
 	checksum        string
 }
 
+func (h *HashData) GetIdentifierParts() (string, string) {
+	return h.identifiedBy, h.identifierValue
+}
+
 func (h *HashData) GetIdentifier() string {
 	return h.identifiedBy + "::" + h.identifierValue
 }
