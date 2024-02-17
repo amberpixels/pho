@@ -21,18 +21,14 @@ func TestJsonlDecoding(t *testing.T) {
 	}
 
 	for _, filename := range []string{
-		// JSONL
-		//"with-comments.compact",
-		//"with-comments",
-		//"with-multiline-comments.compact",
-		//"with-multiline-comments",
-		//"without-comments.compact",
-		//"without-comments",
-
-		// Valid JSON:
-		"valid-json.compact",
+		"with-comments.compact",
+		"with-comments",
+		"with-multiline-comments.compact",
+		"with-multiline-comments",
+		"without-comments.compact",
+		"without-comments",
 	} {
-		file, err := os.Open("testdata/samples." + filename + ".json")
+		file, err := os.Open("testdata/samples." + filename + ".jsonl")
 		if err != nil {
 			t.Errorf("could not read testdata file %s: %s", filename, err)
 		}
