@@ -236,12 +236,15 @@ func (app *App) SetupDumpDestination() (*os.File, string, error) {
 }
 
 // OpenEditor opens file under filePath in given editor
-func (app *App) OpenEditor(editor string, filePath string) error {
+func (app *App) OpenEditor(editorCmd string, filePath string) error {
 
 	// Depending on which editor is selected, we can have custom args
 	// for syntax, etc
 
-	commandArgs := make([]string, 0)
+	parts := strings.Split(editorCmd, " ")
+	editor := parts[0]
+	commandArgs := parts[1:]
+
 	switch editor {
 	case "vim", "nvim", "vi":
 		// Set syntax JSON
