@@ -12,9 +12,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"pho/internal/diff"
 	"pho/internal/hashing"
 	"pho/internal/render"
-	"pho/pkg/extjson"
 	"pho/pkg/jsonl"
 	"strings"
 )
@@ -266,7 +266,7 @@ func (app *App) OpenEditor(editorCmd string, filePath string) error {
 	return nil
 }
 
-func (app *App) readMeta() (*ParsedMeta, error) {
+func (app *App) readMeta() (*diff.ParsedMeta, error) {
 	if err := app.setupPhoDir(); err != nil {
 		return nil, err
 	}
@@ -299,7 +299,7 @@ func (app *App) readMeta() (*ParsedMeta, error) {
 		iLine++
 	}
 
-	return &ParsedMeta{Lines: meta}, nil
+	return &diff.ParsedMeta{Lines: meta}, nil
 }
 
 func (app *App) readDump() ([]bson.M, error) {
@@ -328,7 +328,7 @@ func (app *App) readDump() ([]bson.M, error) {
 	return results, nil
 }
 
-func (app *App) extractChanges() (Changes, error) {
+func (app *App) extractChanges() (*diff.ChangesPack, error) {
 	meta, err := app.readMeta()
 	if err != nil {
 		return nil, fmt.Errorf("failed on reading meta: %w", err)
@@ -339,51 +339,7 @@ func (app *App) extractChanges() (Changes, error) {
 		return nil, fmt.Errorf("failed on reading dump: %w", err)
 	}
 
-	changes := make(Changes, len(dump), len(dump))
-
-	idsMet := make(map[string]struct{})
-	for i, obj := range dump {
-		hashData, err := hashing.Hash(obj)
-		if err != nil {
-			return nil, fmt.Errorf("corrupted obj[%d] could not hash: %w", i, err)
-		}
-		checksumAfter := hashData.GetChecksum()
-
-		//slog.Log(context.Background(), slog.LevelInfo, "AFTER "+hashData.String())
-
-		id := hashData.GetIdentifier()
-		idsMet[id] = struct{}{}
-
-		if hashDataBefore, ok := meta.Lines[id]; ok {
-			//slog.Log(context.Background(), slog.LevelInfo, "BEFORE "+checksumBefore)
-
-			if hashDataBefore.GetChecksum() == checksumAfter {
-				changes[i] = NewChange(hashData, Actions.Noop, "")
-			} else {
-				identifiedBy, identifierValue := hashData.GetIdentifierParts()
-				objData, _ := extjson.NewMarshaller(true).Marshal(obj)
-				cmd := fmt.Sprintf(`db.getCollection("%s").updateOne({%s:"%s"},{$set:%s})`,
-					"test", // todo collection name
-					identifiedBy,
-					identifierValue,
-					string(objData),
-				)
-				changes[i] = NewChange(hashData, Actions.Updated, cmd)
-			}
-		} else {
-			changes[i] = NewChange(hashData, Actions.Added, "")
-		}
-	}
-
-	for existedBeforeIdentifier, hashData := range meta.Lines {
-		if _, ok := idsMet[existedBeforeIdentifier]; ok {
-			continue
-		}
-
-		changes = append(changes, NewChange(hashData, Actions.Deleted, ""))
-	}
-
-	return changes, nil
+	return diff.GetChanges(dump, meta)
 }
 
 func (app *App) ReviewChanges() error {
@@ -395,15 +351,16 @@ func (app *App) ReviewChanges() error {
 		return fmt.Errorf("failed on extracting changes: %w", err)
 	}
 
-	fmt.Println("Effective changes: ", changes.EffectiveCount())
+	fmt.Println("Effective changes: ", changes.Changes.EffectiveCount())
 
-	for _, effCh := range changes.Effective() {
-		fmt.Println(effCh.hash.GetIdentifier(), " -> ", effCh.action)
-	}
+	//for _, effCh := range changes.Changes.Effective() {
+	// todo change public field
+	//fmt.Println(effCh.GetIdentifier(), " -> ", effCh.action)
+	//}
 
-	for _, effCh := range changes.Effective() {
-		if effCh.command != "" {
-			fmt.Println(effCh.command)
+	for i, _ := range changes.Changes.Effective() {
+		if changes.ShellCommands[i] != "" {
+			fmt.Println(changes.ShellCommands[i])
 		} else {
 			fmt.Println("..")
 		}
