@@ -6,20 +6,8 @@ import (
 	"pho/internal/hashing"
 )
 
-// ParsedMeta stores hashed lines and other meta
-// TODO: should not be part of diff package
-type ParsedMeta struct {
-	// todo:
-	// db name
-	// collection name
-	// ExtJSON params
-
-	// Lines are hashes per identifier.
-	// Identifier here is considered to be identified_by field + identifier value
-	// etc. _id:111111
-	Lines map[string]*hashing.HashData
-}
-
+// Change holds a document (represented by its hash) with action that was applied.
+// Having a document (bson.M) + a Change allows to create a changed version of the doc.
 type Change struct {
 	action Action
 
@@ -32,14 +20,7 @@ func NewChange(hashData *hashing.HashData, action Action) *Change {
 
 type Changes []*Change
 
-type ChangesPack struct {
-	// len(changes) MUST be len(shellCommands)
-	// and their indexes match!
-
-	Changes       Changes
-	ShellCommands []string
-}
-
+// Filter returns a filtered list of changes (by a given filter func(
 func (chs Changes) Filter(f func(*Change) bool) Changes {
 	filtered := make(Changes, 0)
 	for _, ch := range chs {
@@ -50,10 +31,12 @@ func (chs Changes) Filter(f func(*Change) bool) Changes {
 	return filtered
 }
 
+// Effective is an alias for Filter(action!=noop)
 func (chs Changes) Effective() Changes {
 	return chs.Filter(func(ch *Change) bool { return ch.action != ActionsDict.Noop })
 }
 
+// EffectiveCount returns number of effective changes
 func (chs Changes) EffectiveCount() int {
 	count := 0
 	for _, ch := range chs {
@@ -64,16 +47,46 @@ func (chs Changes) EffectiveCount() int {
 	return count
 }
 
-func GetChanges(dump []bson.M, meta *ParsedMeta) (*ChangesPack, error) {
-	changes := make(Changes, len(dump), len(dump))
+// ChangesPack stores a list of changes
+// With the list of shell commands (corresponding to re-create doc with the changes)
+// Relation between changes vs shellCommands is made via slice index
+// So len(changes) MUST equal len(shellCommands) and their positions match
+type ChangesPack struct {
+	changes       Changes
+	shellCommands []string
+}
 
+func NewChangesPack() *ChangesPack {
+	return &ChangesPack{make(Changes, 0), make([]string, 0)}
+}
+
+func (cp *ChangesPack) Add(c *Change, shellCmd string) *ChangesPack {
+	cp.changes = append(cp.changes, c)
+	cp.shellCommands = append(cp.shellCommands, shellCmd)
+	return cp
+}
+
+func (cp *ChangesPack) Changes() Changes {
+	return cp.changes
+}
+
+// CalculateChanges calculates changes that represent difference between
+// given `source` hashed lines and `destination` list of current versions of documents
+func CalculateChanges(source map[string]*hashing.HashData, destination []bson.M) (*ChangesPack, error) {
+
+	// to avoid multiple iterations across changes
+	// we want to compile commands during calculation of changes
+	// TODO: solve params here, For now they are hardcoded
 	cmdBuilder := NewCmdBuilder("mydb", "samples")
 
-	shellCommands := make([]string, 0)
-	// todo: ensure shellComand is for EACH change
+	// n stands for length of destination slice
+	n := len(destination)
+	shellCommands := make([]string, n)
+	changes := make(Changes, n)
 
-	idsMet := make(map[string]struct{})
-	for i, obj := range dump {
+	// hashmap for documents that were processed
+	idsLUT := make(map[string]struct{})
+	for i, obj := range destination {
 		hashData, err := hashing.Hash(obj)
 		if err != nil {
 			return nil, fmt.Errorf("corrupted obj[%d] could not hash: %w", i, err)
@@ -83,34 +96,44 @@ func GetChanges(dump []bson.M, meta *ParsedMeta) (*ChangesPack, error) {
 		//slog.Log(context.Background(), slog.LevelInfo, "AFTER "+hashData.String())
 
 		id := hashData.GetIdentifier()
-		idsMet[id] = struct{}{}
+		idsLUT[id] = struct{}{}
 
-		if hashDataBefore, ok := meta.Lines[id]; ok {
-			//slog.Log(context.Background(), slog.LevelInfo, "BEFORE "+checksumBefore)
-
-			if hashDataBefore.GetChecksum() == checksumAfter {
-				changes[i] = NewChange(hashData, ActionsDict.Noop)
-			} else {
-				c := NewChange(hashData, ActionsDict.Updated)
-				changes[i] = c
-
-				cmd, err := cmdBuilder.BuildShellCommand(c, obj)
-				if err != nil {
-					return nil, fmt.Errorf("could not build shel command: %w", err)
-				}
-				shellCommands = append(shellCommands, cmd)
-			}
-		} else {
+		hashDataBefore, ok := source[id]
+		if !ok {
+			// not found in source, so it was added
 			changes[i] = NewChange(hashData, ActionsDict.Added)
+			shellCommands[i] = "todo added"
+			continue
 		}
+
+		//slog.Log(context.Background(), slog.LevelInfo, "BEFORE "+checksumBefore)
+
+		if hashDataBefore.GetChecksum() == checksumAfter {
+			changes[i] = NewChange(hashData, ActionsDict.Noop)
+			shellCommands[i] = "todo: noop"
+			continue
+		}
+
+		c := NewChange(hashData, ActionsDict.Updated)
+		changes[i] = c
+
+		cmd, err := cmdBuilder.BuildShellCommand(c, obj)
+		if err != nil {
+			return nil, fmt.Errorf("could not build shel command: %w", err)
+		}
+		shellCommands[i] = cmd
 	}
 
-	for existedBeforeIdentifier, hashData := range meta.Lines {
-		if _, ok := idsMet[existedBeforeIdentifier]; ok {
+	// Going the other way source=>destination
+	// to find documents that were deleted
+	// Note: order of deletion documents will not be respected
+	for existedBeforeIdentifier, hashData := range source {
+		if _, ok := idsLUT[existedBeforeIdentifier]; ok {
 			continue
 		}
 
 		changes = append(changes, NewChange(hashData, ActionsDict.Deleted))
+		shellCommands = append(shellCommands, "todo: deleted")
 	}
 
 	return &ChangesPack{changes, shellCommands}, nil

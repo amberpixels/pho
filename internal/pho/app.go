@@ -266,7 +266,7 @@ func (app *App) OpenEditor(editorCmd string, filePath string) error {
 	return nil
 }
 
-func (app *App) readMeta() (*diff.ParsedMeta, error) {
+func (app *App) readMeta() (*ParsedMeta, error) {
 	if err := app.setupPhoDir(); err != nil {
 		return nil, err
 	}
@@ -299,7 +299,7 @@ func (app *App) readMeta() (*diff.ParsedMeta, error) {
 		iLine++
 	}
 
-	return &diff.ParsedMeta{Lines: meta}, nil
+	return &ParsedMeta{Lines: meta}, nil
 }
 
 func (app *App) readDump() ([]bson.M, error) {
@@ -339,7 +339,7 @@ func (app *App) extractChanges() (*diff.ChangesPack, error) {
 		return nil, fmt.Errorf("failed on reading dump: %w", err)
 	}
 
-	return diff.GetChanges(dump, meta)
+	return diff.CalculateChanges(meta.Lines, dump)
 }
 
 func (app *App) ReviewChanges() error {
@@ -351,20 +351,20 @@ func (app *App) ReviewChanges() error {
 		return fmt.Errorf("failed on extracting changes: %w", err)
 	}
 
-	fmt.Println("Effective changes: ", changes.Changes.EffectiveCount())
+	fmt.Println("Effective changes: ", changes.Changes().EffectiveCount())
 
 	//for _, effCh := range changes.Changes.Effective() {
 	// todo change public field
 	//fmt.Println(effCh.GetIdentifier(), " -> ", effCh.action)
 	//}
 
-	for i, _ := range changes.Changes.Effective() {
-		if changes.ShellCommands[i] != "" {
-			fmt.Println(changes.ShellCommands[i])
-		} else {
-			fmt.Println("..")
-		}
-	}
+	//for i, _ := range changes.Changes().Effective() {
+	//	if changes.ShellCommands[i] != "" {
+	//		fmt.Println(changes.ShellCommands[i])
+	//	} else {
+	//		fmt.Println("..")
+	//	}
+	//}
 
 	return nil
 }
