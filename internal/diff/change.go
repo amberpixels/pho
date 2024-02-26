@@ -6,21 +6,38 @@ import (
 	"pho/internal/hashing"
 )
 
-// Change holds a document (represented by its hash) with action that was applied.
-// Having a document (bson.M) + a Change allows to create a changed version of the doc.
+// Change holds information about one document change
+// It stores data enough to perform the change
+// Note: we do not need original document state (as we perform only FullUpdates only)
 type Change struct {
-	action Action
+	// Action that was applied
+	Action Action
 
-	hash *hashing.HashData
+	// Data is the data changed (for Action=Updated/Added)
+	Data bson.M
+
+	// IdentifiedBy, IdentifierValue are
+	IdentifiedBy, IdentifierValue string
 }
 
-func NewChange(hashData *hashing.HashData, action Action) *Change {
-	return &Change{hash: hashData, action: action}
+func NewChange(identifiedBy, identifierValue string, action Action, data ...bson.M) *Change {
+	change := &Change{IdentifiedBy: identifiedBy, IdentifierValue: identifierValue, Action: action}
+	if len(data) > 0 {
+		change.Data = data[0]
+	}
+
+	return change
 }
 
 type Changes []*Change
 
-// Filter returns a filtered list of changes (by a given filter func(
+func (ch *Change) IsEffective() bool {
+	return ch.Action != ActionsDict.Noop
+}
+
+func (chs Changes) Len() int { return len(chs) }
+
+// Filter returns a filtered list of changes (by a given filter func)
 func (chs Changes) Filter(f func(*Change) bool) Changes {
 	filtered := make(Changes, 0)
 	for _, ch := range chs {
@@ -28,23 +45,20 @@ func (chs Changes) Filter(f func(*Change) bool) Changes {
 			filtered = append(filtered, ch)
 		}
 	}
+
 	return filtered
 }
 
-// Effective is an alias for Filter(action!=noop)
-func (chs Changes) Effective() Changes {
-	return chs.Filter(func(ch *Change) bool { return ch.action != ActionsDict.Noop })
+// FilterByAction returns a filtered list of changes by action type
+func (chs Changes) FilterByAction(a Action) Changes {
+	return chs.Filter(func(change *Change) bool {
+		return change.Action == a
+	})
 }
 
-// EffectiveCount returns number of effective changes
-func (chs Changes) EffectiveCount() int {
-	count := 0
-	for _, ch := range chs {
-		if ch.action != ActionsDict.Noop {
-			count++
-		}
-	}
-	return count
+// EffectiveOnes is an alias for Filter(IsEffective)
+func (chs Changes) EffectiveOnes() Changes {
+	return chs.Filter(func(ch *Change) bool { return ch.IsEffective() })
 }
 
 // ChangesPack stores a list of changes
@@ -72,69 +86,56 @@ func (cp *ChangesPack) Changes() Changes {
 
 // CalculateChanges calculates changes that represent difference between
 // given `source` hashed lines and `destination` list of current versions of documents
-func CalculateChanges(source map[string]*hashing.HashData, destination []bson.M) (*ChangesPack, error) {
-
-	// to avoid multiple iterations across changes
-	// we want to compile commands during calculation of changes
-	// TODO: solve params here, For now they are hardcoded
-	cmdBuilder := NewCmdBuilder("mydb", "samples")
-
-	// n stands for length of destination slice
+func CalculateChanges(source map[string]*hashing.HashData, destination []bson.M) (Changes, error) {
 	n := len(destination)
-	shellCommands := make([]string, n)
 	changes := make(Changes, n)
 
 	// hashmap for documents that were processed
 	idsLUT := make(map[string]struct{})
-	for i, obj := range destination {
-		hashData, err := hashing.Hash(obj)
+	for i, doc := range destination {
+		hashData, err := hashing.Hash(doc)
 		if err != nil {
 			return nil, fmt.Errorf("corrupted obj[%d] could not hash: %w", i, err)
 		}
-		checksumAfter := hashData.GetChecksum()
 
-		//slog.Log(context.Background(), slog.LevelInfo, "AFTER "+hashData.String())
-
+		// Using full _id::1 identifier as a LUT key
 		id := hashData.GetIdentifier()
 		idsLUT[id] = struct{}{}
 
+		identifiedBy, identifierValue := hashData.GetIdentifierParts()
+		checksumAfter := hashData.GetChecksum()
+
+		// Check if not found in source, so it's a new document
 		hashDataBefore, ok := source[id]
 		if !ok {
-			// not found in source, so it was added
-			changes[i] = NewChange(hashData, ActionsDict.Added)
-			shellCommands[i] = "todo added"
+			changes[i] = NewChange(identifiedBy, identifierValue, ActionsDict.Added, doc)
 			continue
 		}
 
-		//slog.Log(context.Background(), slog.LevelInfo, "BEFORE "+checksumBefore)
-
+		// Document was not change, so it's a nothing
 		if hashDataBefore.GetChecksum() == checksumAfter {
-			changes[i] = NewChange(hashData, ActionsDict.Noop)
-			shellCommands[i] = "todo: noop"
+			changes[i] = NewChange(identifiedBy, identifierValue, ActionsDict.Noop)
 			continue
 		}
 
-		c := NewChange(hashData, ActionsDict.Updated)
-		changes[i] = c
-
-		cmd, err := cmdBuilder.BuildShellCommand(c, obj)
-		if err != nil {
-			return nil, fmt.Errorf("could not build shel command: %w", err)
-		}
-		shellCommands[i] = cmd
+		// Otherwise it was an update:
+		changes[i] = NewChange(identifiedBy, identifierValue, ActionsDict.Updated, doc)
 	}
 
-	// Going the other way source=>destination
-	// to find documents that were deleted
+	// To get delete changes we have to do the other way round:
+	// Source => Destination
 	// Note: order of deletion documents will not be respected
-	for existedBeforeIdentifier, hashData := range source {
-		if _, ok := idsLUT[existedBeforeIdentifier]; ok {
+	for sourceDocIdentifier, hashData := range source {
+		if _, ok := idsLUT[sourceDocIdentifier]; ok {
 			continue
 		}
 
-		changes = append(changes, NewChange(hashData, ActionsDict.Deleted))
-		shellCommands = append(shellCommands, "todo: deleted")
+		// we can either parse sourceDocIdentifier
+		// or take it again from hashData
+		identifiedBy, identifierValue := hashData.GetIdentifierParts()
+
+		changes = append(changes, NewChange(identifiedBy, identifierValue, ActionsDict.Deleted))
 	}
 
-	return &ChangesPack{changes, shellCommands}, nil
+	return changes, nil
 }

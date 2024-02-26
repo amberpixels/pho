@@ -15,6 +15,7 @@ import (
 	"pho/internal/diff"
 	"pho/internal/hashing"
 	"pho/internal/render"
+	"pho/internal/restore"
 	"pho/pkg/jsonl"
 	"strings"
 )
@@ -328,7 +329,7 @@ func (app *App) readDump() ([]bson.M, error) {
 	return results, nil
 }
 
-func (app *App) extractChanges() (*diff.ChangesPack, error) {
+func (app *App) extractChanges() (diff.Changes, error) {
 	meta, err := app.readMeta()
 	if err != nil {
 		return nil, fmt.Errorf("failed on reading meta: %w", err)
@@ -342,8 +343,13 @@ func (app *App) extractChanges() (*diff.ChangesPack, error) {
 	return diff.CalculateChanges(meta.Lines, dump)
 }
 
-func (app *App) ReviewChanges() error {
-	changes, err := app.extractChanges()
+// ReviewChanges output changes in mongo-shell format
+func (app *App) ReviewChanges(ctx context.Context) error {
+	if app.collectionName == "" {
+		return fmt.Errorf("collection name is required")
+	}
+
+	allChanges, err := app.extractChanges()
 	if err != nil {
 		if errors.Is(err, ErrNoMeta) || errors.Is(err, ErrNoDump) {
 			return fmt.Errorf("no dump data to be reviewed")
@@ -351,20 +357,62 @@ func (app *App) ReviewChanges() error {
 		return fmt.Errorf("failed on extracting changes: %w", err)
 	}
 
-	fmt.Println("Effective changes: ", changes.Changes().EffectiveCount())
+	changes := allChanges.EffectiveOnes()
 
-	//for _, effCh := range changes.Changes.Effective() {
-	// todo change public field
-	//fmt.Println(effCh.GetIdentifier(), " -> ", effCh.action)
-	//}
+	fmt.Println("// Effective changes: ", changes.Len())
+	fmt.Println("// Noop changes: ", allChanges.FilterByAction(diff.ActionsDict.Noop).Len())
 
-	//for i, _ := range changes.Changes().Effective() {
-	//	if changes.ShellCommands[i] != "" {
-	//		fmt.Println(changes.ShellCommands[i])
-	//	} else {
-	//		fmt.Println("..")
-	//	}
-	//}
+	mongoShellRestorer := restore.NewMongoShellRestorer(app.collectionName)
+
+	for _, ch := range changes {
+		if mongoCmd, err := mongoShellRestorer.Build(ch); err != nil {
+			fmt.Println("could not build mongo shell command: ", err)
+		} else {
+			fmt.Println(mongoCmd)
+		}
+	}
+
+	return nil
+}
+
+// ApplyChanges applies (executes) the changes
+func (app *App) ApplyChanges(ctx context.Context) error {
+	if app.collectionName == "" {
+		return fmt.Errorf("collection name is required")
+	}
+	if app.dbName == "" {
+		return fmt.Errorf("db name is required")
+	}
+
+	col := app.dbClient.Database(app.dbName).Collection(app.collectionName)
+
+	allChanges, err := app.extractChanges()
+	if err != nil {
+		if errors.Is(err, ErrNoMeta) || errors.Is(err, ErrNoDump) {
+			return fmt.Errorf("no dump data to be reviewed")
+		}
+		return fmt.Errorf("failed on extracting changes: %w", err)
+	}
+
+	changes := allChanges.EffectiveOnes()
+
+	// todo: make level of verbosity an app flag
+
+	fmt.Println("// Effective changes: ", changes.Len())
+	fmt.Println("// Noop changes: ", allChanges.FilterByAction(diff.ActionsDict.Noop).Len())
+
+	mongoClientRestorer := restore.NewMongoClientRestorer(col)
+
+	for _, ch := range changes {
+		if mongoCmd, err := mongoClientRestorer.Build(ch); err != nil {
+			fmt.Println("could not build mongo shell command: ", err)
+		} else {
+			err := mongoCmd(ctx)
+			if err != nil {
+				fmt.Println("failed to apply change: %w", err)
+			}
+		}
+	}
 
 	return nil
 }

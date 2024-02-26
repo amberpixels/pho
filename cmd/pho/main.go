@@ -11,13 +11,13 @@ import (
 )
 
 func main() {
-	if err := run(); err != nil {
+	if err := Run(); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
 }
 
-func run() error {
+func Run() error {
 	// TODO: handle nice --help (with list of flags + defaults)
 
 	// Connection args are as much similar to mongodump args as possible
@@ -42,6 +42,7 @@ func run() error {
 	flag.StringVar(editPtr, "e", "", "Shorthand for --edit")
 
 	reviewChangesPtr := flag.Bool("review-changes", false, "Review changes")
+	applyChangesPtr := flag.Bool("apply-changes", false, "Apply changes")
 
 	flag.Parse()
 
@@ -74,14 +75,32 @@ func run() error {
 		)),
 	)
 
-	if *reviewChangesPtr {
-		if err := p.ReviewChanges(); err != nil {
+	// TODO(ctx): Use reasonable timeout + make it interrupt-able from CLI
+	ctx := context.Background()
+
+	// For review-/apply- changes mode we need collection name as well
+	// It should not be required to be passed as flag
+	// Query-stage collection/db name should be stored in meta
+	// TODO(db-connection-details-in-meta): implement ^^
+	switch true {
+	case *reviewChangesPtr:
+		if err := p.ReviewChanges(context.Background()); err != nil {
 			return fmt.Errorf("failed on reviewing changes: %w", err)
 		}
+
+		return nil
+	case *applyChangesPtr:
+		if err := p.ConnectDB(ctx); err != nil {
+			return fmt.Errorf("failed on connecting to db: %w", err)
+		}
+		defer p.Close(ctx)
+
+		if err := p.ApplyChanges(context.Background()); err != nil {
+			return fmt.Errorf("failed on reviewing changes: %w", err)
+		}
+
 		return nil
 	}
-
-	ctx := context.Background()
 
 	if err := p.ConnectDB(ctx); err != nil {
 		return fmt.Errorf("failed on connecting to db: %w", err)
