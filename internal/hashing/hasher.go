@@ -4,35 +4,47 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"pho/pkg/extjson"
 	"strings"
 )
+
+const (
+	IdentifierSeparator = "::"
+	ChecksumSeparator   = "|"
+)
+
+type HashData struct {
+	// identifiedBy stores the field, which data is identified by
+	identifiedBy string
+
+	// identifierValue currently can be a string or ObjectID
+	identifierValue *IdentifierValue
+
+	// checksum of the whole doc
+	checksum string
+}
 
 // Hash performs hashing of the given db object
 // It identifies it (by _id or id field) and calculates checksum for whole its content via SHA256
 // Each db object is represented via hash line: _id::123|checksum
 func Hash(result bson.M) (*HashData, error) {
-	var identifierValue, identifiedBy string
-	unknown, ok := result["_id"]
-	if ok {
-		identifiedBy = "_id"
-	} else {
-		unknown, ok = result["id"]
-		if ok {
-			identifiedBy = "id"
-		} else {
-			// todo: as future feature it should not be a problem
-			return nil, fmt.Errorf("(not_supported_yet) no identifierValue field is found. Object must contain _id or id field")
+	// todo: allow via config to rewrite it
+	possibleIdFields := []string{"_id", "id"}
+
+	var identifiedBy string
+	var unknown any
+	var ok bool
+	for _, possibleIdField := range possibleIdFields {
+		if unknown, ok = result[possibleIdField]; ok {
+			identifiedBy = possibleIdField
+			break
 		}
 	}
-
-	switch idTyped := unknown.(type) {
-	case string:
-		identifierValue = idTyped
-	case primitive.ObjectID:
-		identifierValue = idTyped.Hex()
+	if !ok {
+		return nil, fmt.Errorf("no identifierValue field is found. Object must contain one of %v fields", possibleIdFields)
 	}
+
+	identifierValue := NewIdentifierValue(unknown)
 
 	canonicalExtJson, err := extjson.NewMarshaller(true).Marshal(result)
 	if err != nil {
@@ -51,18 +63,12 @@ func Hash(result bson.M) (*HashData, error) {
 	}, nil
 }
 
-type HashData struct {
-	identifiedBy    string
-	identifierValue string
-	checksum        string
-}
-
-func (h *HashData) GetIdentifierParts() (string, string) {
-	return h.identifiedBy, h.identifierValue
+func (h *HashData) GetIdentifierParts() (string, any) {
+	return h.identifiedBy, h.identifierValue.Value
 }
 
 func (h *HashData) GetIdentifier() string {
-	return h.identifiedBy + "::" + h.identifierValue
+	return h.identifiedBy + IdentifierSeparator + h.identifierValue.String()
 }
 
 func (h *HashData) GetChecksum() string {
@@ -70,23 +76,28 @@ func (h *HashData) GetChecksum() string {
 }
 
 func (h *HashData) String() string {
-	return h.GetIdentifier() + "|" + h.checksum
+	return h.GetIdentifier() + ChecksumSeparator + h.checksum
 }
 
 func Parse(hashStr string) (*HashData, error) {
-	parts := strings.Split(hashStr, "|")
+	parts := strings.Split(hashStr, ChecksumSeparator)
 	if len(parts) != 2 {
 		return nil, fmt.Errorf("hash string must be split by | in two parts")
 	}
 
-	subParts := strings.Split(parts[0], "::")
+	subParts := strings.Split(parts[0], IdentifierSeparator)
 	if len(subParts) != 2 {
 		return nil, fmt.Errorf("identifier part must be split by :: in two parts")
 	}
 
+	identifierValue, err := ParseIdentifierValue(subParts[1])
+	if err != nil {
+		return nil, fmt.Errorf("invalid identifier part: %w", err)
+	}
+
 	return &HashData{
 		identifiedBy:    subParts[0],
-		identifierValue: subParts[1],
+		identifierValue: identifierValue,
 		checksum:        parts[1],
 	}, nil
 }

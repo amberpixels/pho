@@ -16,11 +16,11 @@ type Change struct {
 	// Data is the data changed (for Action=Updated/Added)
 	Data bson.M
 
-	// IdentifiedBy, IdentifierValue are
-	IdentifiedBy, IdentifierValue string
+	IdentifiedBy    string
+	IdentifierValue any
 }
 
-func NewChange(identifiedBy, identifierValue string, action Action, data ...bson.M) *Change {
+func NewChange(identifiedBy string, identifierValue any, action Action, data ...bson.M) *Change {
 	change := &Change{IdentifiedBy: identifiedBy, IdentifierValue: identifierValue, Action: action}
 	if len(data) > 0 {
 		change.Data = data[0]

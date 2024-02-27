@@ -39,7 +39,7 @@ func (b *MongoShellRestorer) Build(c *diff.Change) (string, error) {
 			return "", fmt.Errorf("could not marshal given obj value: %w", err)
 		}
 
-		return fmt.Sprintf(`db.getCollection("%s").updateOne({%s:"%s"},{$set:%s});`,
+		return fmt.Sprintf(`db.getCollection("%s").updateOne({%s:%v},{$set:%s});`,
 			b.collectionName,
 			c.IdentifiedBy, c.IdentifierValue,
 			marshalledData,
@@ -59,7 +59,7 @@ func (b *MongoShellRestorer) Build(c *diff.Change) (string, error) {
 			marshalledData,
 		), nil
 	case diff.ActionsDict.Deleted:
-		return fmt.Sprintf(`db.getCollection("%s").remove({"%s":"%s"});`,
+		return fmt.Sprintf(`db.getCollection("%s").remove({"%s":%v});`,
 			b.collectionName,
 			c.IdentifiedBy, c.IdentifierValue,
 		), nil

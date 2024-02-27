@@ -35,17 +35,24 @@ func (b *MongoClientRestorer) Build(c *diff.Change) (func(ctx context.Context) e
 			// TODO c.Data needs to be cloned here, so it's not mutated
 			delete(c.Data, c.IdentifiedBy)
 
-			resultForFuture, err := b.dbCollection.UpdateOne(ctx,
-				bson.M{c.IdentifiedBy: c.IdentifierValue},
-				bson.M{"$set": c.Data},
-			)
+			filter := bson.M{c.IdentifiedBy: c.IdentifierValue}
+			update := bson.M{"$set": c.Data}
+			result, err := b.dbCollection.UpdateOne(ctx, filter, update)
+			if err != nil {
+				return fmt.Errorf("mongo.UpdateOne() failed: %w", err)
+			}
 
-			// TODO: do no loose UpdateResult, we can use it to give more verbosity to users
-			_ = resultForFuture
+			// UpdateOne doesn't return ErrNoDocument as FindOne does
+			// So let's return it manually, as no documents means something is wrong
+			if result.MatchedCount == 0 {
+				return fmt.Errorf("mongo.UpdateOne() failed: %w", mongo.ErrNoDocuments)
+			}
+			// TODO: keep result for future, it can provide us more things
 
-			return err
+			return nil
 		default:
-			// todo: implement other cases
+
+			// TODO: implement other cases
 			return fmt.Errorf("not implemented")
 		}
 	}, nil

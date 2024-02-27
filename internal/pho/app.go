@@ -120,6 +120,13 @@ func (app *App) RunQuery(ctx context.Context, query string, limit int64, sort st
 	return cur, nil
 }
 
+// Dump dumps decoded mongo cursor into given writer
+//
+//	TODO: as an idea: let's add a top comment in the dump that will tell if changes were applied or not
+//		e.g `// changes (if any) were not applied yet`
+//		will be automatically updated (after --apply-changes) ->
+//		`// changes (X updates, Y deletes, Z inserts, N noops) were applied`
+//		This may be an overwhelming for this function, so  think how to implement this properly
 func (app *App) Dump(ctx context.Context, cursor *mongo.Cursor, out io.Writer) error {
 	renderCfg := app.render.GetConfiguration()
 
