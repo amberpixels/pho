@@ -61,29 +61,6 @@ func (chs Changes) EffectiveOnes() Changes {
 	return chs.Filter(func(ch *Change) bool { return ch.IsEffective() })
 }
 
-// ChangesPack stores a list of changes
-// With the list of shell commands (corresponding to re-create doc with the changes)
-// Relation between changes vs shellCommands is made via slice index
-// So len(changes) MUST equal len(shellCommands) and their positions match
-type ChangesPack struct {
-	changes       Changes
-	shellCommands []string
-}
-
-func NewChangesPack() *ChangesPack {
-	return &ChangesPack{make(Changes, 0), make([]string, 0)}
-}
-
-func (cp *ChangesPack) Add(c *Change, shellCmd string) *ChangesPack {
-	cp.changes = append(cp.changes, c)
-	cp.shellCommands = append(cp.shellCommands, shellCmd)
-	return cp
-}
-
-func (cp *ChangesPack) Changes() Changes {
-	return cp.changes
-}
-
 // CalculateChanges calculates changes that represent difference between
 // given `source` hashed lines and `destination` list of current versions of documents
 func CalculateChanges(source map[string]*hashing.HashData, destination []bson.M) (Changes, error) {

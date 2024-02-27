@@ -275,6 +275,8 @@ func (app *App) OpenEditor(editorCmd string, filePath string) error {
 }
 
 func (app *App) readMeta() (*ParsedMeta, error) {
+	// TODO: use ctx for reading
+
 	if err := app.setupPhoDir(); err != nil {
 		return nil, err
 	}
@@ -311,6 +313,8 @@ func (app *App) readMeta() (*ParsedMeta, error) {
 }
 
 func (app *App) readDump() ([]bson.M, error) {
+	// TODO: use ctx for reading
+
 	if err := app.setupPhoDir(); err != nil {
 		return nil, err
 	}

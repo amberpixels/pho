@@ -22,14 +22,3 @@ var ActionsDict = struct {
 	Deleted: "DELETED",
 	Added:   "ADDED",
 }
-
-// IsValid checks if given action value is a valid value: that it's a part of ActionsDict
-func IsValid(a Action) bool {
-	switch a {
-	case ActionsDict.Noop, ActionsDict.Updated,
-		ActionsDict.Added, ActionsDict.Deleted:
-		return true
-	}
-
-	return false
-}
