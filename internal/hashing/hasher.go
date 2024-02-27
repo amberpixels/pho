@@ -28,7 +28,7 @@ type HashData struct {
 // It identifies it (by _id or id field) and calculates checksum for whole its content via SHA256
 // Each db object is represented via hash line: _id::123|checksum
 func Hash(result bson.M) (*HashData, error) {
-	// todo: allow via config to rewrite it
+	// TODO: allow via config to rewrite it
 	possibleIdFields := []string{"_id", "id"}
 
 	var identifiedBy string

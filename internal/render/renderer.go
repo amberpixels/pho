@@ -58,7 +58,7 @@ func (r *Renderer) FormatResult(result any) ([]byte, error) {
 			return bson.MarshalExtJSON(result, false, false)
 		}
 	case cfg.ExtJSONMode == ExtJSONModes.Shell:
-		// todo: implement MongoDB Ext Json v1 Shell mode
+		// TODO: implement MongoDB Ext Json v1 Shell mode
 		marshal = func(v any) ([]byte, error) {
 			return nil, fmt.Errorf("not implemented")
 		}

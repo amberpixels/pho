@@ -86,7 +86,7 @@ func WithIgnoreFailures(v bool) Option { return func(c *Configuration) { c.Ignor
 
 // RoundTripJSON makes marshal and then unmarshal back into other given variable
 // Can be used for copying things that can be JSONified
-// todo: move to some helpers utils
+// TODO: move to some helpers utils
 func RoundTripJSON(in, out any) error {
 	b, err := json.Marshal(in)
 	if err != nil {

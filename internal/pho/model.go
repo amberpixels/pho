@@ -7,10 +7,10 @@ import (
 
 // ParsedMeta stores hashed lines and other meta
 type ParsedMeta struct {
-	// todo:
+	// TODO:
 	// ExtJSON params
 
-	// todo:
+	// TODO:
 	//dbName     string
 	//collection string
 

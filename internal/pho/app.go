@@ -135,7 +135,7 @@ func (app *App) Dump(ctx context.Context, cursor *mongo.Cursor, out io.Writer) e
 	if out != os.Stdout {
 		var err error
 		if hashesFile, err = app.setupHashDestination(); err != nil {
-			// todo: it should be a soft error (warning)
+			// TODO: it should be a soft error (warning)
 			//       so we still dump data, but not letting to edit it
 			return fmt.Errorf("failed creating hashes file")
 		}
@@ -155,7 +155,7 @@ func (app *App) Dump(ctx context.Context, cursor *mongo.Cursor, out io.Writer) e
 		resultHashData, err := hashing.Hash(result)
 		if err != nil {
 			if renderCfg.IgnoreFailures {
-				// todo: reconsider and refactor
+				// TODO: reconsider and refactor
 				//       that's not so accurate, as failure is on hashing part
 				//       but IgnoreFailures is a flag of rendering part
 				continue
@@ -219,7 +219,7 @@ func (app *App) setupHashDestination() (*os.File, error) {
 
 	destinationPath := filepath.Join(phoDir, phoMetaFile)
 
-	file, err := os.Create(destinationPath) // todo: 0600
+	file, err := os.Create(destinationPath) // TODO: 0600
 	if err != nil {
 		return nil, fmt.Errorf("failed creating hashes file: %w", err)
 	}
@@ -403,7 +403,7 @@ func (app *App) ApplyChanges(ctx context.Context) error {
 
 	changes := allChanges.EffectiveOnes()
 
-	// todo: make level of verbosity an app flag
+	// TODO: make level of verbosity an app flag
 
 	fmt.Println("// Effective changes: ", changes.Len())
 	fmt.Println("// Noop changes: ", allChanges.FilterByAction(diff.ActionsDict.Noop).Len())

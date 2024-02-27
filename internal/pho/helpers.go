@@ -48,7 +48,7 @@ func parseSort(sortStr string) bson.D {
 
 // parseProjection parses projection string into bson.D
 func parseProjection(in string) bson.D {
-	// todo:
+	// TODO:
 	// for now do the same as parseSort, but should be refactored
 	return parseSort(in)
 }

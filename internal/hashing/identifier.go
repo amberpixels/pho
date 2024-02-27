@@ -38,7 +38,7 @@ func (id *IdentifierValue) String() string {
 // ParseIdentifierValue here does the reverse operation of String()
 // e.g. string `ObjectID("X")` will become an actual primitive.ObjectID
 func ParseIdentifierValue(s string) (*IdentifierValue, error) {
-	// todo: rewrite via regex
+	// TODO: rewrite via regex
 	if strings.HasPrefix(s, `ObjectID("`) && strings.HasSuffix(s, `")`) {
 		hex := s
 		hex = strings.TrimPrefix(hex, `ObjectID("`)

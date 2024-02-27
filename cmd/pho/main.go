@@ -28,10 +28,10 @@ func Run() error {
 	collectionPtr := flag.String("collection", "", "MongoDB collection name")
 	queryPtr := flag.String("query", "{}", "MongoDB query as a JSON document")
 
-	// todo: shorthands (-q for --query, -h for --host, etc)
+	// TODO: shorthands (-q for --query, -h for --host, etc)
 
-	// todo: timeouts
-	// todo: ensure more complex ways of mongo connection are supported
+	// TODO: timeouts
+	// TODO: ensure more complex ways of mongo connection are supported
 
 	// Other related-based args:
 	limitPtr := flag.Int64("limit", 10000, "Limit for number of documents to retrieve")
@@ -69,7 +69,7 @@ func Run() error {
 		pho.WithCollection(*collectionPtr),
 
 		pho.WithRenderer(render.NewRenderer(
-			// todo: from cli args
+			// TODO: from cli args
 			render.WithExtJSONMode(render.ExtJSONModes.Canonical),
 			render.WithShowLineNumbers(true),
 		)),

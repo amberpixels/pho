@@ -30,7 +30,7 @@ func (m *Marshaller) WithIndent(v string) *Marshaller { m.indent = v; return m }
 func (m *Marshaller) Marshal(result any) ([]byte, error) {
 	// For better error handling, let's detect when result is a slice
 	// As bson.MarshalExtJson can only handle single objects
-	// todo(3): handle it automagically via loop here
+	// TODO(1): handle it automagically via loop here
 	{
 		t := reflect.TypeOf(result)
 		k := reflect.TypeOf(result).Kind()
@@ -56,9 +56,9 @@ func (m *Marshaller) Marshal(result any) ([]byte, error) {
 	// So for Day One solution we're completely OK with not the most efficient
 	// but working solution
 	// So, as json.Marshal() does provide a stable marshalling into a map
-	// And our ExtJSON (v2) is a valid json - let's simply make a round-trip marshalling
-	// todo(1): rewrite so it's a efficient solution
-	// todo(2): think of a solution to support ExtJSON (v1) as it's not a valid JSON
+	// And as ExtJSON (v2) is a valid json - let's simply make a round-trip marshalling
+	// TODO(2): rewrite so it's a efficient solution
+	// TODO(3): think of a solution to support ExtJSON (v1) as it's not a valid JSON
 
 	var temp any
 	if err = json.Unmarshal(marshalled, &temp); err != nil {

@@ -1,6 +1,6 @@
 package diff
 
-// todo: apply a richer enum declaration
+// TODO: apply a richer enum declaration
 
 // Action that was applied to the given doc
 // Note: never create values on the fly:
