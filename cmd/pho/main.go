@@ -76,7 +76,7 @@ func Run() error {
 	)
 
 	// TODO(ctx): Use reasonable timeout + make it interrupt-able from CLI
-	ctx := context.Background()
+	ctx := context.TODO()
 
 	// For review-/apply- changes mode we need collection name as well
 	// It should not be required to be passed as flag
@@ -84,7 +84,7 @@ func Run() error {
 	// TODO(db-connection-details-in-meta): implement ^^
 	switch true {
 	case *reviewChangesPtr:
-		if err := p.ReviewChanges(context.Background()); err != nil {
+		if err := p.ReviewChanges(ctx); err != nil {
 			return fmt.Errorf("failed on reviewing changes: %w", err)
 		}
 
@@ -95,7 +95,7 @@ func Run() error {
 		}
 		defer p.Close(ctx)
 
-		if err := p.ApplyChanges(context.Background()); err != nil {
+		if err := p.ApplyChanges(ctx); err != nil {
 			return fmt.Errorf("failed on reviewing changes: %w", err)
 		}
 
