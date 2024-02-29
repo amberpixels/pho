@@ -78,6 +78,14 @@ func Run() error {
 	// TODO(ctx): Use reasonable timeout + make it interrupt-able from CLI
 	ctx := context.TODO()
 
+	// Unless it's `--review-changes` we must connect
+	if !*reviewChangesPtr {
+		if err := p.ConnectDB(ctx); err != nil {
+			return fmt.Errorf("failed on connecting to db: %w", err)
+		}
+		defer p.Close(ctx)
+	}
+
 	// For review-/apply- changes mode we need collection name as well
 	// It should not be required to be passed as flag
 	// Query-stage collection/db name should be stored in meta
@@ -90,22 +98,12 @@ func Run() error {
 
 		return nil
 	case *applyChangesPtr:
-		if err := p.ConnectDB(ctx); err != nil {
-			return fmt.Errorf("failed on connecting to db: %w", err)
-		}
-		defer p.Close(ctx)
-
 		if err := p.ApplyChanges(ctx); err != nil {
 			return fmt.Errorf("failed on reviewing changes: %w", err)
 		}
 
 		return nil
 	}
-
-	if err := p.ConnectDB(ctx); err != nil {
-		return fmt.Errorf("failed on connecting to db: %w", err)
-	}
-	defer p.Close(ctx)
 
 	cursor, err := p.RunQuery(ctx, *queryPtr, *limitPtr, *sortPtr, *projectionPtr)
 	if err != nil {
