@@ -46,25 +46,8 @@ func Run() error {
 
 	flag.Parse()
 
-	// if nothing was specified, let's fallback to a default URI
-	uri := "localhost:27017"
-	if *uriPtr != "" {
-		uri = *uriPtr
-	} else if *hostPtr != "" {
-		port := "27017"
-		if *portPtr != "" {
-			port = *portPtr
-		}
-
-		uri = *hostPtr + ":" + port
-	}
-
-	if !strings.HasPrefix(uri, "mongodb://") {
-		uri = "mongodb://" + uri
-	}
-
 	p := pho.NewApp(
-		pho.WithURI(uri),
+		pho.WithURI(prepareMongoURI(uriPtr, hostPtr, portPtr)),
 		pho.WithDatabase(*dbPtr),
 		pho.WithCollection(*collectionPtr),
 
@@ -138,4 +121,25 @@ func Run() error {
 	}
 
 	return nil
+}
+
+func prepareMongoURI(uriPtr, hostPtr, portPtr *string) string {
+	// if nothing was specified, let's fallback to a default URI
+	result := "localhost:27017"
+	if *uriPtr != "" {
+		result = *uriPtr
+	} else if *hostPtr != "" {
+		port := "27017"
+		if *portPtr != "" {
+			port = *portPtr
+		}
+
+		result = *hostPtr + ":" + port
+	}
+
+	if !strings.HasPrefix(result, "mongodb://") {
+		result = "mongodb://" + result
+	}
+
+	return result
 }
