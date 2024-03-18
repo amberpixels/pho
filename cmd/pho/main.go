@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
 	"pho/internal/pho"
 	"pho/internal/render"
 	"strings"
@@ -58,8 +59,8 @@ func Run() error {
 		)),
 	)
 
-	// TODO(ctx): Use reasonable timeout + make it interrupt-able from CLI
-	ctx := context.TODO()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
 
 	// Unless it's `--review-changes` we must connect
 	if !*reviewChangesPtr {
