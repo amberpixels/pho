@@ -31,7 +31,6 @@ func Run() error {
 
 	// TODO: shorthands (-q for --query, -h for --host, etc)
 
-	// TODO: timeouts
 	// TODO: ensure more complex ways of mongo connection are supported
 
 	// Other related-based args:
@@ -58,6 +57,8 @@ func Run() error {
 		)),
 	)
 
+	// Ctx respects OS signals
+	// TODO: handle timeouts (maybe?)
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
