@@ -53,8 +53,7 @@ func Run() error {
 		pho.WithCollection(*collectionPtr),
 
 		pho.WithRenderer(render.NewRenderer(
-			// TODO: from cli args
-			render.WithExtJSONMode(render.ExtJSONModes.Canonical),
+			render.WithExtJSONMode(render.ExtJSONModes.Canonical), // TODO: make it a flag
 			render.WithShowLineNumbers(true),
 		)),
 	)
