@@ -58,36 +58,33 @@ func Run() error {
 	)
 
 	// Ctx respects OS signals
-	// TODO: handle timeouts (maybe?)
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	// Unless it's `--review-changes` we must connect
-	if !*reviewChangesPtr {
-		if err := p.ConnectDB(ctx); err != nil {
-			return fmt.Errorf("failed on connecting to db: %w", err)
-		}
-		defer p.Close(ctx)
-	}
-
-	// For review-/apply- changes mode we need collection name as well
-	// It should not be required to be passed as flag
-	// Query-stage collection/db name should be stored in meta
-	// TODO(db-connection-details-in-meta): implement ^^
-	switch true {
-	case *reviewChangesPtr:
+	// ReviewChanges mode: simple calculate and display changes
+	if *reviewChangesPtr {
 		if err := p.ReviewChanges(ctx); err != nil {
 			return fmt.Errorf("failed on reviewing changes: %w", err)
 		}
 
 		return nil
-	case *applyChangesPtr:
+	}
+
+	if err := p.ConnectDB(ctx); err != nil {
+		return fmt.Errorf("failed on connecting to db: %w", err)
+	}
+	defer p.Close(ctx)
+
+	// ApplyChanges mode: apply calculated changes if any
+	if *applyChangesPtr {
 		if err := p.ApplyChanges(ctx); err != nil {
 			return fmt.Errorf("failed on reviewing changes: %w", err)
 		}
 
 		return nil
 	}
+
+	// Query mode:
 
 	cursor, err := p.RunQuery(ctx, *queryPtr, *limitPtr, *sortPtr, *projectionPtr)
 	if err != nil {

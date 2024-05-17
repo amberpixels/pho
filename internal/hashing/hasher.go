@@ -9,8 +9,7 @@ import (
 )
 
 const (
-	IdentifierSeparator = "::"
-	ChecksumSeparator   = "|"
+	Separator = " "
 )
 
 type HashData struct {
@@ -68,7 +67,7 @@ func (h *HashData) GetIdentifierParts() (string, any) {
 }
 
 func (h *HashData) GetIdentifier() string {
-	return h.identifiedBy + IdentifierSeparator + h.identifierValue.String()
+	return h.identifiedBy + Separator + h.identifierValue.String()
 }
 
 func (h *HashData) GetChecksum() string {
@@ -76,28 +75,23 @@ func (h *HashData) GetChecksum() string {
 }
 
 func (h *HashData) String() string {
-	return h.GetIdentifier() + ChecksumSeparator + h.checksum
+	return h.GetIdentifier() + Separator + h.checksum
 }
 
 func Parse(hashStr string) (*HashData, error) {
-	parts := strings.Split(hashStr, ChecksumSeparator)
-	if len(parts) != 2 {
+	parts := strings.Split(hashStr, Separator)
+	if len(parts) != 3 {
 		return nil, fmt.Errorf("hash string must be split by | in two parts")
 	}
 
-	subParts := strings.Split(parts[0], IdentifierSeparator)
-	if len(subParts) != 2 {
-		return nil, fmt.Errorf("identifier part must be split by :: in two parts")
-	}
-
-	identifierValue, err := ParseIdentifierValue(subParts[1])
+	identifierValue, err := ParseIdentifierValue(parts[1])
 	if err != nil {
 		return nil, fmt.Errorf("invalid identifier part: %w", err)
 	}
 
 	return &HashData{
-		identifiedBy:    subParts[0],
+		identifiedBy:    parts[0],
 		identifierValue: identifierValue,
-		checksum:        parts[1],
+		checksum:        parts[2],
 	}, nil
 }

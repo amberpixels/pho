@@ -9,6 +9,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -22,7 +23,7 @@ import (
 
 const (
 	phoDir      = ".pho"
-	phoMetaFile = "_meta"
+	phoMetaFile = "meta"
 
 	// TODO: file extension should be handled automatically
 	//       it should be switched from .jsonl to .json
@@ -134,7 +135,7 @@ func (app *App) Dump(ctx context.Context, cursor *mongo.Cursor, out io.Writer) e
 	var hashesFile *os.File
 	if out != os.Stdout {
 		var err error
-		if hashesFile, err = app.setupHashDestination(); err != nil {
+		if hashesFile, err = app.setupMetaDestination(); err != nil {
 			// TODO: it should be a soft error (warning)
 			//       so we still dump data, but not letting to edit it
 			return fmt.Errorf("failed creating hashes file")
@@ -211,8 +212,8 @@ func (app *App) setupPhoDir() error {
 	return nil
 }
 
-// setupHashDestination sets up writer (*os.File) for hashes to be written in
-func (app *App) setupHashDestination() (*os.File, error) {
+// setupMetaDestination sets up writer (*os.File) for hashes to be written in
+func (app *App) setupMetaDestination() (*os.File, error) {
 	if err := app.setupPhoDir(); err != nil {
 		return nil, err
 	}
@@ -274,13 +275,12 @@ func (app *App) OpenEditor(editorCmd string, filePath string) error {
 	return nil
 }
 
-func (app *App) readMeta() (*ParsedMeta, error) {
-	// TODO: use ctx for reading
-
+func (app *App) readMeta(ctx context.Context) (*ParsedMeta, error) {
 	if err := app.setupPhoDir(); err != nil {
 		return nil, err
 	}
 
+	// reading meta file, e.g. ".pho/meta"
 	metaFilePath := filepath.Join(phoDir, phoMetaFile)
 	metaReader, err := os.Open(metaFilePath)
 	if err != nil {
@@ -290,30 +290,64 @@ func (app *App) readMeta() (*ParsedMeta, error) {
 
 		return nil, fmt.Errorf("could not open: %w", err)
 	}
+	defer metaReader.Close()
 
+	var inFrontMatter bool
 	var iLine int
-	meta := map[string]*hashing.HashData{}
+	meta := &ParsedMeta{Lines: map[string]*hashing.HashData{}}
 	scanner := bufio.NewScanner(metaReader)
 	for scanner.Scan() {
-		line := scanner.Text()
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+
+		line := strings.TrimSpace(scanner.Text())
+
+		// Read yaml header that is located between `---` lines:
+		if line == "---" && !inFrontMatter {
+			inFrontMatter = true
+			continue
+		}
+
+		// Let's do the simplest front-matter handling for now:
+		// Simply split by `:` and parse only options we need
+		if inFrontMatter {
+			if line == "---" {
+				inFrontMatter = false
+				continue
+			}
+
+			parts := strings.Split(line, ":")
+			if len(parts) != 2 {
+				return nil, fmt.Errorf("corrupted meta line: %s", line)
+			}
+
+			key, val := strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])
+			switch key {
+			case "db_name":
+				meta.dbName = val
+			case "collection_name":
+				meta.collectionName = val
+			default:
+				slog.Warn("unknown front-matter option: ", parts[0])
+			}
+
+			continue
+		}
 
 		parsed, err := hashing.Parse(line)
 		if err != nil {
 			return nil, fmt.Errorf("corrupted line#%d: corrupted meta line: %w", iLine, err)
 		}
 
-		parts := strings.Split(line, "|")
-		if len(parts) != 2 {
-		}
-		meta[parsed.GetIdentifier()] = parsed
+		meta.Lines[parsed.GetIdentifier()] = parsed
 		iLine++
 	}
 
-	return &ParsedMeta{Lines: meta}, nil
+	return meta, nil
 }
 
-func (app *App) readDump() ([]bson.M, error) {
-	// TODO: use ctx for reading
+func (app *App) readDump(ctx context.Context) ([]bson.M, error) {
 
 	if err := app.setupPhoDir(); err != nil {
 		return nil, err
@@ -340,13 +374,8 @@ func (app *App) readDump() ([]bson.M, error) {
 	return results, nil
 }
 
-func (app *App) extractChanges() (diff.Changes, error) {
-	meta, err := app.readMeta()
-	if err != nil {
-		return nil, fmt.Errorf("failed on reading meta: %w", err)
-	}
-
-	dump, err := app.readDump()
+func (app *App) extractChanges(ctx context.Context) (diff.Changes, error) {
+	dump, err := app.readDump(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed on reading dump: %w", err)
 	}
@@ -356,13 +385,24 @@ func (app *App) extractChanges() (diff.Changes, error) {
 
 // ReviewChanges output changes in mongo-shell format
 func (app *App) ReviewChanges(ctx context.Context) error {
+	meta, err := app.readMeta(ctx)
+	if err != nil {
+		return fmt.Errorf("failed on reading meta: %w", err)
+	}
+	if app.collectionName == "" {
+		app.collectionName = meta.collectionName
+	}
+	if app.dbName == "" {
+		app.dbName = meta.dbName
+	}
+
 	if app.collectionName == "" {
 		return fmt.Errorf("collection name is required")
 	}
 
-	allChanges, err := app.extractChanges()
+	allChanges, err := app.extractChanges(ctx)
 	if err != nil {
-		if errors.Is(err, ErrNoMeta) || errors.Is(err, ErrNoDump) {
+		if errors.Is(err, ErrNoDump) {
 			return fmt.Errorf("no dump data to be reviewed")
 		}
 		return fmt.Errorf("failed on extracting changes: %w", err)
@@ -397,7 +437,7 @@ func (app *App) ApplyChanges(ctx context.Context) error {
 
 	col := app.dbClient.Database(app.dbName).Collection(app.collectionName)
 
-	allChanges, err := app.extractChanges()
+	allChanges, err := app.extractChanges(ctx)
 	if err != nil {
 		if errors.Is(err, ErrNoMeta) || errors.Is(err, ErrNoDump) {
 			return fmt.Errorf("no dump data to be reviewed")

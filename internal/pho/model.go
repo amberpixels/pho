@@ -7,17 +7,16 @@ import (
 
 // ParsedMeta stores hashed lines and other meta
 type ParsedMeta struct {
-	// TODO:
-	// ExtJSON params
-
-	// TODO:
-	//dbName     string
-	//collection string
+	dbName         string
+	collectionName string
 
 	// Lines are hashes per identifier.
 	// Identifier here is considered to be identified_by field + identifier value
-	// etc. _id::111111
+	// etc. _id|111111
 	Lines map[string]*hashing.HashData
+
+	// TODO:
+	// ExtJSON params
 }
 
 type DumpDoc bson.M
