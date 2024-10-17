@@ -3,8 +3,9 @@ package render
 import (
 	"context"
 	"fmt"
-	"go.mongodb.org/mongo-driver/bson"
 	"io"
+
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 type Renderer struct {

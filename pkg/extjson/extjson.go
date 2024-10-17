@@ -7,8 +7,9 @@ package extjson
 import (
 	"encoding/json"
 	"fmt"
-	"go.mongodb.org/mongo-driver/bson"
 	"reflect"
+
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 type Marshaller struct {

@@ -1,8 +1,9 @@
 package pho
 
 import (
-	"go.mongodb.org/mongo-driver/bson"
 	"pho/internal/hashing"
+
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 // ParsedMeta stores hashed lines and other meta

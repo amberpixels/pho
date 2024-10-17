@@ -3,9 +3,10 @@ package pho
 import (
 	"encoding/json"
 	"fmt"
-	"go.mongodb.org/mongo-driver/bson"
 	"log"
 	"strings"
+
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 // parseQuery parses query string into bson.M

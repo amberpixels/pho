@@ -1,9 +1,10 @@
 package extjson_test
 
 import (
-	"go.mongodb.org/mongo-driver/bson"
 	"pho/pkg/extjson"
 	"testing"
+
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 func TestMarshaller_Marshal_OnSingleObject(t *testing.T) {

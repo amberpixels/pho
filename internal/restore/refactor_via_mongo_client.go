@@ -3,9 +3,10 @@ package restore
 import (
 	"context"
 	"fmt"
+	"pho/internal/diff"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-	"pho/internal/diff"
 )
 
 // MongoClientRestorer restores changes via mongo go client

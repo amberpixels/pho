@@ -2,8 +2,9 @@ package diff
 
 import (
 	"fmt"
-	"go.mongodb.org/mongo-driver/bson"
 	"pho/internal/hashing"
+
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 // Change holds information about one document change
