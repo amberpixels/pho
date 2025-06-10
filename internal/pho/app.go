@@ -303,9 +303,10 @@ func (app *App) readMeta() (*ParsedMeta, error) {
 			return nil, fmt.Errorf("corrupted line#%d: corrupted meta line: %w", iLine, err)
 		}
 
-		parts := strings.Split(line, "|")
-		if len(parts) != 2 {
-		}
+		// TODO: lost code, did we do something with parts before?
+		// parts := strings.Split(line, "|")
+		// if len(parts) != 2 {}
+
 		meta[parsed.GetIdentifier()] = parsed
 		iLine++
 	}
@@ -334,7 +335,7 @@ func (app *App) readDump() ([]bson.M, error) {
 		return nil, fmt.Errorf("could not decode dump: %w", err)
 	}
 
-	results := make([]bson.M, len(raws), len(raws))
+	results := make([]bson.M, len(raws))
 	for i, raw := range raws {
 		results[i] = bson.M(raw)
 	}

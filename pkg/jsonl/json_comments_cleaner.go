@@ -70,9 +70,10 @@ func (cr *JSONCommentsCleaner) removeComments(line string) string {
 		}
 
 		// Update the JSON nesting level
-		if line[i] == '{' {
+		switch line[i] {
+		case '{':
 			cr.jsonNestingLevel++
-		} else if line[i] == '}' {
+		case '}':
 			cr.jsonNestingLevel--
 		}
 
