@@ -16,7 +16,7 @@ func NewDecoder(r io.Reader) *json.Decoder {
 func DecodeAll[T any](r io.Reader) ([]T, error) {
 	decoder := NewDecoder(r)
 
-	results := make([]T, 0)
+	var results []T
 	for {
 		var result T
 		err := decoder.Decode(&result)

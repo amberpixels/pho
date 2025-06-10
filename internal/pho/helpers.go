@@ -21,7 +21,7 @@ func parseQuery(queryStr string) (bson.M, error) {
 
 // parseSort parses sort string into bson.D
 func parseSort(sortStr string) bson.D {
-	sort := bson.D{}
+	var sort bson.D
 
 	// Parse ready-to-use sort like `{"created_at":-1}`
 	if strings.HasPrefix(sortStr, "{") {

@@ -33,11 +33,12 @@ func (b *MongoClientRestorer) Build(c *diff.Change) (func(ctx context.Context) e
 				return fmt.Errorf("updated action requires a doc")
 			}
 
-			// TODO c.Data needs to be cloned here, so it's not mutated
-			delete(c.Data, c.IdentifiedBy)
+			// Clone data to avoid mutating the original
+			dataClone := cloneBsonM(c.Data)
+			delete(dataClone, c.IdentifiedBy)
 
 			filter := bson.M{c.IdentifiedBy: c.IdentifierValue}
-			update := bson.M{"$set": c.Data}
+			update := bson.M{"$set": dataClone}
 			result, err := b.dbCollection.UpdateOne(ctx, filter, update)
 			if err != nil {
 				return fmt.Errorf("mongo.UpdateOne() failed: %w", err)
@@ -51,10 +52,39 @@ func (b *MongoClientRestorer) Build(c *diff.Change) (func(ctx context.Context) e
 			// TODO: keep result for future, it can provide us more things
 
 			return nil
-		default:
 
-			// TODO: implement other cases
-			return fmt.Errorf("not implemented")
+		case diff.ActionsDict.Added:
+			if c.Data == nil {
+				return fmt.Errorf("added action requires a doc")
+			}
+
+			_, err := b.dbCollection.InsertOne(ctx, c.Data)
+			if err != nil {
+				return fmt.Errorf("mongo.InsertOne() failed: %w", err)
+			}
+
+			return nil
+
+		case diff.ActionsDict.Deleted:
+			filter := bson.M{c.IdentifiedBy: c.IdentifierValue}
+			result, err := b.dbCollection.DeleteOne(ctx, filter)
+			if err != nil {
+				return fmt.Errorf("mongo.DeleteOne() failed: %w", err)
+			}
+
+			// Ensure the document was actually deleted
+			if result.DeletedCount == 0 {
+				return fmt.Errorf("mongo.DeleteOne() failed: %w", mongo.ErrNoDocuments)
+			}
+
+			return nil
+
+		case diff.ActionsDict.Noop:
+			// No operation needed for noop actions
+			return ErrNoop
+
+		default:
+			return fmt.Errorf("unknown action type: %v", c.Action)
 		}
 	}, nil
 }

@@ -40,9 +40,10 @@ func (id *IdentifierValue) String() string {
 func ParseIdentifierValue(s string) (*IdentifierValue, error) {
 	// TODO: rewrite via regex
 	if strings.HasPrefix(s, `ObjectID("`) && strings.HasSuffix(s, `")`) {
-		hex := s
-		hex = strings.TrimPrefix(hex, `ObjectID("`)
-		hex = strings.TrimSuffix(hex, `")`)
+		hex, found := strings.CutPrefix(s, `ObjectID("`)
+		if found {
+			hex, _ = strings.CutSuffix(hex, `")`)
+		}
 
 		oid, err := primitive.ObjectIDFromHex(hex)
 		if err != nil {

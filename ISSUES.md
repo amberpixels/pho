@@ -1,32 +1,32 @@
 # Known Issues and Technical Debt
 
+## 🎉 Recent Progress Summary
+
+**Phase 1.1 Critical Bugs - COMPLETED**
+- ✅ Fixed data mutation bugs in restore operations
+- ✅ Implemented complete CRUD operations (INSERT/DELETE/UPDATE/NOOP)
+- ✅ Added context usage to all file operations for proper cancellation
+- ✅ Implemented automatic file extension (.json/.jsonl) based on content format
+
+**Impact**: Core functionality is now stable and reliable. Data corruption risks eliminated.
+
 ## Critical Issues (Must Fix Before v1.0)
 
-### 🔥 **Data Corruption Risk**
-**Location**: `internal/restore/refactor_via_mongo_shell.go:34`, `internal/restore/refactor_via_mongo_client.go:36`
-**Issue**: Data objects are being mutated instead of cloned during restore operations
-```go
-// TODO c.Data needs to be cloned here, so it's not mutated
-```
-**Impact**: Could cause unexpected behavior and data corruption
-**Priority**: CRITICAL
-**Estimated Fix Time**: 2 hours
+### ✅ **Data Corruption Risk** - RESOLVED
+**Location**: `internal/restore/refactor_via_mongo_shell.go`, `internal/restore/refactor_via_mongo_client.go`
+**Issue**: Data objects were being mutated instead of cloned during restore operations
+**Solution**: Added `cloneBsonM()` helper function in `internal/restore/helpers.go` to create shallow copies of bson.M data before modification
+**Status**: **COMPLETED** - All restore operations now use cloned data to prevent mutation
 
-### 🔥 **Incomplete CRUD Operations**
-**Location**: `internal/restore/refactor_via_mongo_client.go:56`
-**Issue**: Only UPDATE operations are implemented, missing INSERT and DELETE
-```go
-// TODO: implement other cases
-switch ch.Action {
-case diff.ActionsDict.Updated:
-    // Only this case is implemented
-default:
-    // INSERT and DELETE missing
-}
-```
-**Impact**: Users cannot add or remove documents
-**Priority**: CRITICAL
-**Estimated Fix Time**: 4-6 hours
+### ✅ **Incomplete CRUD Operations** - RESOLVED
+**Location**: `internal/restore/refactor_via_mongo_client.go`
+**Issue**: Only UPDATE operations were implemented, missing INSERT and DELETE
+**Solution**: Implemented complete CRUD operations:
+- **INSERT**: `insertOne()` with proper error handling
+- **DELETE**: `deleteOne()` with verification of deletion count
+- **UPDATE**: Enhanced with better error handling
+- **NOOP**: Proper handling with `ErrNoop` return
+**Status**: **COMPLETED** - Full CRUD functionality implemented
 
 ### 🔥 **Missing ExtJSON v1 Shell Mode**
 **Location**: `internal/render/renderer.go:62`
@@ -53,17 +53,15 @@ default:
 **Priority**: HIGH
 **Estimated Fix Time**: 40-60 hours
 
-### ⚠️ **File Extension Confusion**
-**Location**: `internal/pho/app.go:28-33`
-**Issue**: Always creates `.jsonl` files regardless of content format
-```go
-// TODO: file extension should be handled automatically
-//       it should be switched from .jsonl to .json
-//       depending on output
-```
-**Impact**: Poor editor syntax highlighting, user confusion
-**Priority**: HIGH
-**Estimated Fix Time**: 2-3 hours
+### ✅ **File Extension Confusion** - RESOLVED
+**Location**: `internal/pho/app.go`
+**Issue**: Always created `.jsonl` files regardless of content format
+**Solution**: Implemented dynamic file extension system:
+- Added `getDumpFileExtension()` method that determines extension based on renderer configuration
+- `.json` extension for `AsValidJSON` mode (JSON array format)
+- `.jsonl` extension for compact/default mode (line-by-line format)
+- Updated `readDump()` to handle both JSON array and JSONL formats
+**Status**: **COMPLETED** - File extensions now automatically match content format for proper editor syntax highlighting
 
 ### ⚠️ **Missing Database Connection Persistence**
 **Location**: `cmd/pho/main.go:76`
@@ -75,15 +73,14 @@ default:
 **Priority**: HIGH
 **Estimated Fix Time**: 4-6 hours
 
-### ⚠️ **No Context Usage in File Operations**
-**Location**: Multiple files (`internal/pho/app.go:279`, `app.go:318`)
-**Issue**: File operations don't use context for cancellation/timeout
-```go
-// TODO: use ctx for reading
-```
-**Impact**: Cannot cancel long-running file operations
-**Priority**: HIGH
-**Estimated Fix Time**: 2-3 hours
+### ✅ **No Context Usage in File Operations** - RESOLVED
+**Location**: `internal/pho/app.go`
+**Issue**: File operations didn't use context for cancellation/timeout
+**Solution**: Updated all file operations to use context:
+- `readMeta(ctx)` and `readDump(ctx)` now accept context parameters
+- Added context cancellation checks in file reading loops
+- `extractChanges(ctx)` passes context through the call chain
+**Status**: **COMPLETED** - All file operations now support cancellation and timeout
 
 ## Medium Priority Issues
 

@@ -31,11 +31,12 @@ func (b *MongoShellRestorer) Build(c *diff.Change) (string, error) {
 			return "", fmt.Errorf("updated action requires a doc")
 		}
 
-		// TODO c.Data needs to be cloned here, so it's not mutated
-		delete(c.Data, c.IdentifiedBy)
+		// Clone data to avoid mutating the original
+		dataClone := cloneBsonM(c.Data)
+		delete(dataClone, c.IdentifiedBy)
 
 		var err error
-		if marshalledData, err = extjson.NewMarshaller(true).Marshal(c.Data); err != nil {
+		if marshalledData, err = extjson.NewMarshaller(true).Marshal(dataClone); err != nil {
 			return "", fmt.Errorf("could not marshal given obj value: %w", err)
 		}
 

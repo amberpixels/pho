@@ -3,6 +3,7 @@ package pho
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -24,13 +25,7 @@ import (
 const (
 	phoDir      = ".pho"
 	phoMetaFile = "_meta"
-
-	// TODO: file extension should be handled automatically
-	//       it should be switched from .jsonl to .json
-	//       depending on output
-	//       It's important because we want to use the fact that text editors will
-	//       use automatic syntax highlighting
-	phoDumpFile = "_dump.jsonl"
+	phoDumpBase = "_dump" // Base filename without extension
 )
 
 var (
@@ -56,6 +51,24 @@ func NewApp(opts ...Option) *App {
 		opt(c)
 	}
 	return c
+}
+
+// getDumpFileExtension determines the appropriate file extension based on renderer configuration
+func (app *App) getDumpFileExtension() string {
+	config := app.render.GetConfiguration()
+	
+	// If output is valid JSON (array format), use .json extension
+	if config.AsValidJSON {
+		return ".json"
+	}
+	
+	// For compact JSON (line-by-line) or default, use .jsonl extension
+	return ".jsonl"
+}
+
+// getDumpFilename returns the complete dump filename with appropriate extension
+func (app *App) getDumpFilename() string {
+	return phoDumpBase + app.getDumpFileExtension()
 }
 
 // ConnectDB establishes the connection to the MongoDB server.
@@ -234,7 +247,7 @@ func (app *App) SetupDumpDestination() (*os.File, string, error) {
 		return nil, "", err
 	}
 
-	destinationPath := filepath.Join(phoDir, phoDumpFile)
+	destinationPath := filepath.Join(phoDir, app.getDumpFilename())
 
 	file, err := os.Create(destinationPath)
 	if err != nil {
@@ -275,8 +288,7 @@ func (app *App) OpenEditor(editorCmd string, filePath string) error {
 	return nil
 }
 
-func (app *App) readMeta() (*ParsedMeta, error) {
-	// TODO: use ctx for reading
+func (app *App) readMeta(ctx context.Context) (*ParsedMeta, error) {
 
 	if err := app.setupPhoDir(); err != nil {
 		return nil, err
@@ -296,6 +308,12 @@ func (app *App) readMeta() (*ParsedMeta, error) {
 	meta := map[string]*hashing.HashData{}
 	scanner := bufio.NewScanner(metaReader)
 	for scanner.Scan() {
+		// Check for context cancellation
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
 		line := scanner.Text()
 
 		parsed, err := hashing.Parse(line)
@@ -314,14 +332,13 @@ func (app *App) readMeta() (*ParsedMeta, error) {
 	return &ParsedMeta{Lines: meta}, nil
 }
 
-func (app *App) readDump() ([]bson.M, error) {
-	// TODO: use ctx for reading
+func (app *App) readDump(ctx context.Context) ([]bson.M, error) {
 
 	if err := app.setupPhoDir(); err != nil {
 		return nil, err
 	}
 
-	dumpFilePath := filepath.Join(phoDir, phoDumpFile)
+	dumpFilePath := filepath.Join(phoDir, app.getDumpFilename())
 	dumpReader, err := os.Open(dumpFilePath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -330,25 +347,51 @@ func (app *App) readDump() ([]bson.M, error) {
 		return nil, fmt.Errorf("could not open dump: %w", err)
 	}
 
-	raws, err := jsonl.DecodeAll[DumpDoc](dumpReader)
-	if err != nil {
-		return nil, fmt.Errorf("could not decode dump: %w", err)
+	// Check for context cancellation before decoding
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
 	}
 
-	results := make([]bson.M, len(raws))
-	for i, raw := range raws {
-		results[i] = bson.M(raw)
+	var results []bson.M
+	
+	// Handle different file formats based on extension
+	if app.getDumpFileExtension() == ".json" {
+		// For JSON array format
+		var jsonArray []DumpDoc
+		decoder := json.NewDecoder(dumpReader)
+		if err := decoder.Decode(&jsonArray); err != nil {
+			return nil, fmt.Errorf("could not decode JSON array dump: %w", err)
+		}
+		
+		results = make([]bson.M, len(jsonArray))
+		for i, raw := range jsonArray {
+			results[i] = bson.M(raw)
+		}
+	} else {
+		// For JSONL format (default)
+		raws, err := jsonl.DecodeAll[DumpDoc](dumpReader)
+		if err != nil {
+			return nil, fmt.Errorf("could not decode JSONL dump: %w", err)
+		}
+		
+		results = make([]bson.M, len(raws))
+		for i, raw := range raws {
+			results[i] = bson.M(raw)
+		}
 	}
+	
 	return results, nil
 }
 
-func (app *App) extractChanges() (diff.Changes, error) {
-	meta, err := app.readMeta()
+func (app *App) extractChanges(ctx context.Context) (diff.Changes, error) {
+	meta, err := app.readMeta(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed on reading meta: %w", err)
 	}
 
-	dump, err := app.readDump()
+	dump, err := app.readDump(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed on reading dump: %w", err)
 	}
@@ -362,7 +405,7 @@ func (app *App) ReviewChanges(ctx context.Context) error {
 		return fmt.Errorf("collection name is required")
 	}
 
-	allChanges, err := app.extractChanges()
+	allChanges, err := app.extractChanges(ctx)
 	if err != nil {
 		if errors.Is(err, ErrNoMeta) || errors.Is(err, ErrNoDump) {
 			return fmt.Errorf("no dump data to be reviewed")
@@ -399,7 +442,7 @@ func (app *App) ApplyChanges(ctx context.Context) error {
 
 	col := app.dbClient.Database(app.dbName).Collection(app.collectionName)
 
-	allChanges, err := app.extractChanges()
+	allChanges, err := app.extractChanges(ctx)
 	if err != nil {
 		if errors.Is(err, ErrNoMeta) || errors.Is(err, ErrNoDump) {
 			return fmt.Errorf("no dump data to be reviewed")

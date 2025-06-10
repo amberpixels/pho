@@ -40,7 +40,7 @@ func (chs Changes) Len() int { return len(chs) }
 
 // Filter returns a filtered list of changes (by a given filter func)
 func (chs Changes) Filter(f func(*Change) bool) Changes {
-	filtered := make(Changes, 0)
+	var filtered Changes
 	for _, ch := range chs {
 		if f(ch) {
 			filtered = append(filtered, ch)

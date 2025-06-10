@@ -26,6 +26,8 @@ Pho is a MongoDB document editor that allows querying, editing, and applying cha
 **internal/pho/** - Main application logic and MongoDB connection handling
 - `App` struct manages the complete workflow from query to change application
 - Handles editor launching, temporary file management, and MongoDB operations
+- Context-aware file operations with proper cancellation support
+- Automatic file extension handling (.json/.jsonl) based on output format
 
 **internal/diff/** - Change detection system
 - Compares document hashes to identify additions, updates, deletions, and no-ops
@@ -39,17 +41,21 @@ Pho is a MongoDB document editor that allows querying, editing, and applying cha
 - Renders MongoDB documents in Extended JSON formats (canonical, relaxed, shell)
 - Configurable line numbers, compaction, and validation settings
 
-**internal/restore/** - Change application
+**internal/restore/** - Change application ✅ Recently Enhanced
 - Two strategies: direct MongoDB client execution or shell command generation
-- Handles insert, update, and delete operations back to collections
+- **Complete CRUD operations**: INSERT, UPDATE, DELETE, and NOOP handling
+- **Data safety**: All operations use cloned data to prevent mutation
+- **Error handling**: Proper validation and meaningful error messages
 
 **pkg/jsonl/** - JSONL parsing with comment support
 **pkg/extjson/** - Extended JSON utilities for MongoDB document handling
 
-### File Structure
+### File Structure ✅ Recently Enhanced
 - `.pho/_meta` - Stores document hashes for change detection
-- `.pho/_dump.jsonl` - Temporary file containing editable documents
-- Uses JSONL format for line-by-line document editing
+- `.pho/_dump.json` or `.pho/_dump.jsonl` - Temporary file containing editable documents
+  - **Automatic extension**: `.json` for valid JSON arrays, `.jsonl` for line-by-line format
+  - **Editor support**: Proper syntax highlighting based on file extension
+- Context-aware file operations with cancellation support
 
 ### MongoDB Connection
 Supports standard MongoDB connection patterns similar to mongodump:

@@ -9,10 +9,10 @@ Transform Pho into a production-ready, universal database document editor suppor
 **Focus**: Fix critical bugs, add comprehensive testing, stabilize core functionality
 
 #### Week 1-2: Critical Bug Fixes
-- [ ] **Fix data mutation bugs** in restore operations
-- [ ] **Complete CRUD operations** (INSERT/DELETE)
+- [x] **Fix data mutation bugs** in restore operations ✅
+- [x] **Complete CRUD operations** (INSERT/DELETE) ✅
 - [ ] **Implement ExtJSON v1 Shell mode**
-- [ ] **Add file extension automation** (.json/.jsonl)
+- [x] **Add file extension automation** (.json/.jsonl) ✅
 - [ ] **Store connection details** in metadata
 
 #### Week 3-4: Testing & Quality

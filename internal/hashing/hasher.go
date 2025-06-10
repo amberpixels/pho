@@ -80,24 +80,24 @@ func (h *HashData) String() string {
 }
 
 func Parse(hashStr string) (*HashData, error) {
-	parts := strings.Split(hashStr, ChecksumSeparator)
-	if len(parts) != 2 {
-		return nil, fmt.Errorf("hash string must be split by | in two parts")
+	identifierPart, checksum, found := strings.Cut(hashStr, ChecksumSeparator)
+	if !found {
+		return nil, fmt.Errorf("hash string must contain checksum separator |")
 	}
 
-	subParts := strings.Split(parts[0], IdentifierSeparator)
-	if len(subParts) != 2 {
-		return nil, fmt.Errorf("identifier part must be split by :: in two parts")
+	identifiedBy, identifierValueStr, found := strings.Cut(identifierPart, IdentifierSeparator)
+	if !found {
+		return nil, fmt.Errorf("identifier part must contain identifier separator ::")
 	}
 
-	identifierValue, err := ParseIdentifierValue(subParts[1])
+	identifierValue, err := ParseIdentifierValue(identifierValueStr)
 	if err != nil {
 		return nil, fmt.Errorf("invalid identifier part: %w", err)
 	}
 
 	return &HashData{
-		identifiedBy:    subParts[0],
+		identifiedBy:    identifiedBy,
 		identifierValue: identifierValue,
-		checksum:        parts[1],
+		checksum:        checksum,
 	}, nil
 }
