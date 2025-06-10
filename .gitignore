@@ -3,3 +3,4 @@ artifacts
 .pho
 *.private.json
 *.private.md
+/build
