@@ -4,3 +4,4 @@ artifacts
 *.private.json
 *.private.md
 /build
+coverage.out
