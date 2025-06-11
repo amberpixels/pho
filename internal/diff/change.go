@@ -33,7 +33,7 @@ func NewChange(identifiedBy string, identifierValue any, action Action, data ...
 type Changes []*Change
 
 func (ch *Change) IsEffective() bool {
-	return ch.Action != ActionsDict.Noop
+	return ch.Action.IsEffective()
 }
 
 func (chs Changes) Len() int { return len(chs) }
