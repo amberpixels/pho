@@ -19,6 +19,9 @@ func NewMongoClientRestorer(dbCollection *mongo.Collection) *MongoClientRestorer
 }
 
 func (b *MongoClientRestorer) Build(c *diff.Change) (func(ctx context.Context) error, error) {
+	if c == nil {
+		return nil, fmt.Errorf("change cannot be nil")
+	}
 	if c.IdentifiedBy == "" || c.IdentifierValue == "" {
 		return nil, fmt.Errorf("change identifiedBy+identifierValue are required fields")
 	}

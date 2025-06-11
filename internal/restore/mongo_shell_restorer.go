@@ -19,6 +19,9 @@ func NewMongoShellRestorer(collectionName string) *MongoShellRestorer {
 
 // Build builds a shell command for the given change
 func (b *MongoShellRestorer) Build(c *diff.Change) (string, error) {
+	if c == nil {
+		return "", fmt.Errorf("change cannot be nil")
+	}
 	if c.IdentifiedBy == "" || c.IdentifierValue == "" {
 		return "", fmt.Errorf("change identifiedBy+identifierValue are required fields")
 	}
