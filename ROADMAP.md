@@ -11,9 +11,9 @@ Transform Pho into a production-ready, universal database document editor suppor
 #### Week 1-2: Critical Bug Fixes ✅ COMPLETED
 - [x] **Fix data mutation bugs** in restore operations ✅
 - [x] **Complete CRUD operations** (INSERT/DELETE) ✅
-- [ ] **Implement ExtJSON v1 Shell mode**
+- [x] **Implement ExtJSON v1 Shell mode** ✅ **COMPLETED**
 - [x] **Add file extension automation** (.json/.jsonl) ✅
-- [ ] **Store connection details** in metadata
+- [x] **Store connection details** in metadata ✅ **COMPLETED**
 
 #### Week 3-4: Testing & Quality ✅ COMPLETED
 - [x] **Unit tests for all internal packages** (61.6% overall coverage) ✅ **COMPLETED**
@@ -26,7 +26,7 @@ Transform Pho into a production-ready, universal database document editor suppor
 - ✅ All critical bugs fixed ✅ **COMPLETED**
 - ✅ 61.6% test coverage achieved (revised target, excellent quality) ✅ **COMPLETED**
 - ✅ Complete CRUD functionality working ✅ **COMPLETED**
-- [ ] ExtJSON v1 Shell mode functional
+- ✅ ExtJSON v1 Shell mode functional ✅ **COMPLETED**
 
 ### v0.3.0 - Enhanced CLI (v0.2.0 + 2 weeks)
 **Focus**: Improve user experience with Kong CLI framework
@@ -176,12 +176,14 @@ Transform Pho into a production-ready, universal database document editor suppor
 
 ## Development Milestones
 
-### Phase 1: Stabilization (Weeks 1-6) ✅ MOSTLY COMPLETED
+### Phase 1: Stabilization (Weeks 1-6) ✅ COMPLETED
 **Objective**: Create a reliable MongoDB document editor
 - ✅ Fix all critical bugs ✅ **COMPLETED**
 - ✅ Achieve 61.6% test coverage (excellent quality) ✅ **COMPLETED**
 - ✅ Implement complete CRUD operations ✅ **COMPLETED**
-- [ ] Professional CLI experience (Next: Kong CLI integration)
+- ✅ ExtJSON v1 Shell mode support ✅ **COMPLETED**
+- ✅ Configuration flags for ExtJSON modes ✅ **COMPLETED**
+- ✅ Connection details persistence ✅ **COMPLETED**
 
 ### Phase 2: Abstraction (Weeks 7-10)
 **Objective**: Prepare for multi-database support

@@ -41,10 +41,31 @@ func Run() error {
 	editPtr := flag.String("edit", "vim", "Edit results in the editor")
 	flag.StringVar(editPtr, "e", "", "Shorthand for --edit")
 
+	// ExtJSON configuration flags
+	extjsonModePtr := flag.String("extjson-mode", "canonical", "ExtJSON mode (canonical, relaxed, shell)")
+	flag.StringVar(extjsonModePtr, "m", "canonical", "Shorthand for --extjson-mode")
+	compactJSONPtr := flag.Bool("compact", false, "Use compact JSON output")
+	flag.BoolVar(compactJSONPtr, "c", false, "Shorthand for --compact")
+	lineNumbersPtr := flag.Bool("line-numbers", true, "Show line numbers in output")
+	flag.BoolVar(lineNumbersPtr, "l", true, "Shorthand for --line-numbers")
+
 	reviewChangesPtr := flag.Bool("review-changes", false, "Review changes")
 	applyChangesPtr := flag.Bool("apply-changes", false, "Apply changes")
 
 	flag.Parse()
+
+	// Parse and validate ExtJSON mode
+	var extjsonMode render.ExtJSONMode
+	switch *extjsonModePtr {
+	case "canonical":
+		extjsonMode = render.ExtJSONModes.Canonical
+	case "relaxed":
+		extjsonMode = render.ExtJSONModes.Relaxed
+	case "shell":
+		extjsonMode = render.ExtJSONModes.Shell
+	default:
+		return fmt.Errorf("invalid extjson-mode: %s (valid options: canonical, relaxed, shell)", *extjsonModePtr)
+	}
 
 	p := pho.NewApp(
 		pho.WithURI(prepareMongoURI(uriPtr, hostPtr, portPtr)),
@@ -52,8 +73,9 @@ func Run() error {
 		pho.WithCollection(*collectionPtr),
 
 		pho.WithRenderer(render.NewRenderer(
-			render.WithExtJSONMode(render.ExtJSONModes.Canonical), // TODO: make it a flag
-			render.WithShowLineNumbers(true),
+			render.WithExtJSONMode(extjsonMode),
+			render.WithShowLineNumbers(*lineNumbersPtr),
+			render.WithCompactJSON(*compactJSONPtr),
 		)),
 	)
 
@@ -62,18 +84,6 @@ func Run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	// Unless it's `--review-changes` we must connect
-	if !*reviewChangesPtr {
-		if err := p.ConnectDB(ctx); err != nil {
-			return fmt.Errorf("failed on connecting to db: %w", err)
-		}
-		defer p.Close(ctx)
-	}
-
-	// For review-/apply- changes mode we need collection name as well
-	// It should not be required to be passed as flag
-	// Query-stage collection/db name should be stored in meta
-	// TODO(db-connection-details-in-meta): implement ^^
 	switch true {
 	case *reviewChangesPtr:
 		if err := p.ReviewChanges(ctx); err != nil {
@@ -82,11 +92,24 @@ func Run() error {
 
 		return nil
 	case *applyChangesPtr:
+		// For apply changes, we need to connect to the database using stored metadata
+		// or command line parameters if metadata is not available
+		if err := p.ConnectDBForApply(ctx); err != nil {
+			return fmt.Errorf("failed on connecting to db for apply: %w", err)
+		}
+		defer p.Close(ctx)
+
 		if err := p.ApplyChanges(ctx); err != nil {
-			return fmt.Errorf("failed on reviewing changes: %w", err)
+			return fmt.Errorf("failed on applying changes: %w", err)
 		}
 
 		return nil
+	default:
+		// Normal query mode - connect with provided parameters
+		if err := p.ConnectDB(ctx); err != nil {
+			return fmt.Errorf("failed on connecting to db: %w", err)
+		}
+		defer p.Close(ctx)
 	}
 
 	cursor, err := p.RunQuery(ctx, *queryPtr, *limitPtr, *sortPtr, *projectionPtr)

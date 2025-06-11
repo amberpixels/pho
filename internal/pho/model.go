@@ -1,6 +1,7 @@
 package pho
 
 import (
+	"encoding/json"
 	"pho/internal/hashing"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -8,12 +9,10 @@ import (
 
 // ParsedMeta stores hashed lines and other meta
 type ParsedMeta struct {
-	// TODO:
-	// ExtJSON params
-
-	// TODO:
-	//dbName     string
-	//collection string
+	// Connection details for review/apply operations
+	URI        string
+	Database   string
+	Collection string
 
 	// Lines are hashes per identifier.
 	// Identifier here is considered to be identified_by field + identifier value
@@ -27,4 +26,14 @@ type DumpDoc bson.M
 // Whole thing of DumpDoc is required, so it's properly parsed back from ExtJson into bson
 func (tx *DumpDoc) UnmarshalJSON(raw []byte) error {
 	return bson.UnmarshalExtJSON(raw, true, tx)
+}
+
+// ToJSON serializes the metadata to JSON format
+func (meta *ParsedMeta) ToJSON() ([]byte, error) {
+	return json.MarshalIndent(meta, "", "  ")
+}
+
+// FromJSON deserializes metadata from JSON format
+func (meta *ParsedMeta) FromJSON(data []byte) error {
+	return json.Unmarshal(data, meta)
 }

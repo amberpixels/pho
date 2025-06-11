@@ -1,11 +1,18 @@
 package render
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
+	"reflect"
+	"strconv"
+	"strings"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type Renderer struct {
@@ -59,9 +66,8 @@ func (r *Renderer) FormatResult(result any) ([]byte, error) {
 			return bson.MarshalExtJSON(result, false, false)
 		}
 	case cfg.ExtJSONMode == ExtJSONModes.Shell:
-		// TODO: implement MongoDB Ext Json v1 Shell mode
 		marshal = func(v any) ([]byte, error) {
-			return nil, fmt.Errorf("not implemented")
+			return marshalShellExtJSON(v)
 		}
 	}
 
@@ -122,5 +128,168 @@ func (r *Renderer) Format(ctx context.Context, cursor Cursor, out io.Writer) err
 		lineNumber++
 	}
 
+	return nil
+}
+
+// marshalShellExtJSON converts BSON documents to MongoDB Shell ExtJSON v1 format
+// This format uses constructors like ObjectId(), ISODate(), NumberLong() etc.
+func marshalShellExtJSON(v any) ([]byte, error) {
+	var buf bytes.Buffer
+	err := marshalShellValue(v, &buf, 0)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// marshalShellValue recursively marshals values to Shell format
+func marshalShellValue(v any, buf *bytes.Buffer, indent int) error {
+	if v == nil {
+		buf.WriteString("null")
+		return nil
+	}
+
+	switch val := v.(type) {
+	case primitive.ObjectID:
+		buf.WriteString(`ObjectId("`)
+		buf.WriteString(val.Hex())
+		buf.WriteString(`")`)
+		
+	case primitive.DateTime:
+		t := val.Time()
+		buf.WriteString(`ISODate("`)
+		buf.WriteString(t.UTC().Format("2006-01-02T15:04:05.000Z"))
+		buf.WriteString(`")`)
+		
+	case time.Time:
+		buf.WriteString(`ISODate("`)
+		buf.WriteString(val.UTC().Format("2006-01-02T15:04:05.000Z"))
+		buf.WriteString(`")`)
+		
+	case int64:
+		buf.WriteString(`NumberLong("`)
+		buf.WriteString(strconv.FormatInt(val, 10))
+		buf.WriteString(`")`)
+		
+	case int32:
+		buf.WriteString(`NumberInt("`)
+		buf.WriteString(strconv.FormatInt(int64(val), 10))
+		buf.WriteString(`")`)
+		
+	case float64:
+		buf.WriteString(strconv.FormatFloat(val, 'g', -1, 64))
+		
+	case string:
+		buf.WriteString(`"`)
+		buf.WriteString(strings.ReplaceAll(strings.ReplaceAll(val, `\`, `\\`), `"`, `\"`))
+		buf.WriteString(`"`)
+		
+	case bool:
+		if val {
+			buf.WriteString("true")
+		} else {
+			buf.WriteString("false")
+		}
+		
+	case primitive.Binary:
+		buf.WriteString(`BinData(`)
+		buf.WriteString(strconv.Itoa(int(val.Subtype)))
+		buf.WriteString(`, "`)
+		buf.WriteString(base64.StdEncoding.EncodeToString(val.Data))
+		buf.WriteString(`")`)
+		
+	case primitive.Regex:
+		buf.WriteString(`/`)
+		buf.WriteString(val.Pattern)
+		buf.WriteString(`/`)
+		buf.WriteString(val.Options)
+		
+	case bson.M:
+		buf.WriteString("{\n")
+		indentStr := strings.Repeat("  ", indent+1)
+		first := true
+		for k, v := range val {
+			if !first {
+				buf.WriteString(",\n")
+			}
+			first = false
+			buf.WriteString(indentStr)
+			buf.WriteString(`"`)
+			buf.WriteString(k)
+			buf.WriteString(`" : `)
+			err := marshalShellValue(v, buf, indent+1)
+			if err != nil {
+				return err
+			}
+		}
+		buf.WriteString("\n")
+		buf.WriteString(strings.Repeat("  ", indent))
+		buf.WriteString("}")
+		
+	case []any:
+		buf.WriteString("[\n")
+		indentStr := strings.Repeat("  ", indent+1)
+		for i, item := range val {
+			if i > 0 {
+				buf.WriteString(",\n")
+			}
+			buf.WriteString(indentStr)
+			err := marshalShellValue(item, buf, indent+1)
+			if err != nil {
+				return err
+			}
+		}
+		buf.WriteString("\n")
+		buf.WriteString(strings.Repeat("  ", indent))
+		buf.WriteString("]")
+		
+	default:
+		// Handle interface{} and reflect.Value for more complex types
+		rv := reflect.ValueOf(v)
+		switch rv.Kind() {
+		case reflect.Map:
+			buf.WriteString("{\n")
+			indentStr := strings.Repeat("  ", indent+1)
+			keys := rv.MapKeys()
+			for i, key := range keys {
+				if i > 0 {
+					buf.WriteString(",\n")
+				}
+				buf.WriteString(indentStr)
+				buf.WriteString(`"`)
+				buf.WriteString(fmt.Sprintf("%v", key.Interface()))
+				buf.WriteString(`" : `)
+				err := marshalShellValue(rv.MapIndex(key).Interface(), buf, indent+1)
+				if err != nil {
+					return err
+				}
+			}
+			buf.WriteString("\n")
+			buf.WriteString(strings.Repeat("  ", indent))
+			buf.WriteString("}")
+			
+		case reflect.Slice, reflect.Array:
+			buf.WriteString("[\n")
+			indentStr := strings.Repeat("  ", indent+1)
+			for i := 0; i < rv.Len(); i++ {
+				if i > 0 {
+					buf.WriteString(",\n")
+				}
+				buf.WriteString(indentStr)
+				err := marshalShellValue(rv.Index(i).Interface(), buf, indent+1)
+				if err != nil {
+					return err
+				}
+			}
+			buf.WriteString("\n")
+			buf.WriteString(strings.Repeat("  ", indent))
+			buf.WriteString("]")
+			
+		default:
+			// Fallback to string representation
+			buf.WriteString(fmt.Sprintf("%v", v))
+		}
+	}
+	
 	return nil
 }

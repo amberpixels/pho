@@ -1,7 +1,6 @@
 package pho
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
@@ -91,6 +90,31 @@ func (app *App) ConnectDB(ctx context.Context) error {
 	return nil
 }
 
+// ConnectDBForApply connects to database using metadata if available, otherwise uses app configuration
+func (app *App) ConnectDBForApply(ctx context.Context) error {
+	// Try to read metadata to get connection details
+	metadata, err := app.readMeta(ctx)
+	if err == nil && metadata.URI != "" && metadata.Database != "" && metadata.Collection != "" {
+		// Use connection details from metadata
+		client, err := mongo.Connect(ctx, options.Client().ApplyURI(metadata.URI))
+		if err != nil {
+			return fmt.Errorf("failed connecting with metadata URI: %w", err)
+		}
+
+		app.dbClient = client
+		
+		// Update app configuration to match metadata for consistency
+		app.uri = metadata.URI
+		app.dbName = metadata.Database
+		app.collectionName = metadata.Collection
+		
+		return nil
+	}
+
+	// Fall back to normal connection if metadata is not available or incomplete
+	return app.ConnectDB(ctx)
+}
+
 // Close closes the MongoDB connection.
 func (app *App) Close(ctx context.Context) error {
 	if app.dbClient == nil {
@@ -144,14 +168,14 @@ func (app *App) RunQuery(ctx context.Context, query string, limit int64, sort st
 func (app *App) Dump(ctx context.Context, cursor *mongo.Cursor, out io.Writer) error {
 	renderCfg := app.render.GetConfiguration()
 
-	// Create or
-	var hashesFile *os.File
+	// Collect metadata when dumping to file (not stdout)
+	var metadata *ParsedMeta
 	if out != os.Stdout {
-		var err error
-		if hashesFile, err = app.setupHashDestination(); err != nil {
-			// TODO: it should be a soft error (warning)
-			//       so we still dump data, but not letting to edit it
-			return fmt.Errorf("failed creating hashes file")
+		metadata = &ParsedMeta{
+			URI:        app.uri,
+			Database:   app.dbName,
+			Collection: app.collectionName,
+			Lines:      make(map[string]*hashing.HashData),
 		}
 	}
 
@@ -166,19 +190,20 @@ func (app *App) Dump(ctx context.Context, cursor *mongo.Cursor, out io.Writer) e
 			return fmt.Errorf("failed on decoding line [%d]: %w", lineNumber, err)
 		}
 
-		resultHashData, err := hashing.Hash(result)
-		if err != nil {
-			if renderCfg.IgnoreFailures {
-				// TODO: reconsider and refactor
-				//       that's not so accurate, as failure is on hashing part
-				//       but IgnoreFailures is a flag of rendering part
-				continue
-			}
+		// Store hash data in metadata when dumping to file
+		if metadata != nil {
+			resultHashData, err := hashing.Hash(result)
+			if err != nil {
+				if renderCfg.IgnoreFailures {
+					// TODO: reconsider and refactor
+					//       that's not so accurate, as failure is on hashing part
+					//       but IgnoreFailures is a flag of rendering part
+					continue
+				}
 
-			return fmt.Errorf("failed on hashing line [%d]: %w", lineNumber, err)
-		}
-		if _, err := hashesFile.WriteString(resultHashData.String() + "\n"); err != nil {
-			return fmt.Errorf("failed on saving hash line [%d]: %w", lineNumber, err)
+				return fmt.Errorf("failed on hashing line [%d]: %w", lineNumber, err)
+			}
+			metadata.Lines[resultHashData.String()] = resultHashData
 		}
 
 		resultBytes, err := app.render.FormatResult(result)
@@ -205,6 +230,15 @@ func (app *App) Dump(ctx context.Context, cursor *mongo.Cursor, out io.Writer) e
 		lineNumber++
 	}
 
+	// Write metadata file after processing all documents
+	if metadata != nil {
+		if err := app.writeMetadata(metadata); err != nil {
+			// TODO: it should be a soft error (warning)
+			//       so we still dump data, but not letting to edit it
+			return fmt.Errorf("failed writing metadata: %w", err)
+		}
+	}
+
 	return nil
 }
 
@@ -225,20 +259,24 @@ func (app *App) setupPhoDir() error {
 	return nil
 }
 
-// setupHashDestination sets up writer (*os.File) for hashes to be written in
-func (app *App) setupHashDestination() (*os.File, error) {
+// writeMetadata writes metadata to the JSON-based metadata file
+func (app *App) writeMetadata(metadata *ParsedMeta) error {
 	if err := app.setupPhoDir(); err != nil {
-		return nil, err
+		return err
 	}
 
 	destinationPath := filepath.Join(phoDir, phoMetaFile)
 
-	file, err := os.Create(destinationPath) // TODO: 0600
+	data, err := metadata.ToJSON()
 	if err != nil {
-		return nil, fmt.Errorf("failed creating hashes file: %w", err)
+		return fmt.Errorf("failed marshaling metadata: %w", err)
 	}
 
-	return file, nil
+	if err := os.WriteFile(destinationPath, data, 0600); err != nil {
+		return fmt.Errorf("failed writing metadata file: %w", err)
+	}
+
+	return nil
 }
 
 // SetupDumpDestination sets up writer (*os.File) for dump to be written in
@@ -295,7 +333,7 @@ func (app *App) readMeta(ctx context.Context) (*ParsedMeta, error) {
 	}
 
 	metaFilePath := filepath.Join(phoDir, phoMetaFile)
-	metaReader, err := os.Open(metaFilePath)
+	data, err := os.ReadFile(metaFilePath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, fmt.Errorf("could not open: %w", ErrNoMeta)
@@ -304,29 +342,35 @@ func (app *App) readMeta(ctx context.Context) (*ParsedMeta, error) {
 		return nil, fmt.Errorf("could not open: %w", err)
 	}
 
-	var iLine int
+	// Try to parse as JSON first (new format)
+	var metadata ParsedMeta
+	if err := metadata.FromJSON(data); err == nil {
+		return &metadata, nil
+	}
+
+	// Fall back to old line-based format for backward compatibility
+	lines := strings.Split(string(data), "\n")
 	meta := map[string]*hashing.HashData{}
-	scanner := bufio.NewScanner(metaReader)
-	for scanner.Scan() {
+	
+	for iLine, line := range lines {
 		// Check for context cancellation
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		default:
 		}
-		line := scanner.Text()
+		
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
 
 		parsed, err := hashing.Parse(line)
 		if err != nil {
 			return nil, fmt.Errorf("corrupted line#%d: corrupted meta line: %w", iLine, err)
 		}
 
-		// TODO: lost code, did we do something with parts before?
-		// parts := strings.Split(line, "|")
-		// if len(parts) != 2 {}
-
 		meta[parsed.GetIdentifier()] = parsed
-		iLine++
 	}
 
 	return &ParsedMeta{Lines: meta}, nil

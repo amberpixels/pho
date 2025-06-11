@@ -27,10 +27,18 @@ Pho is designed as a MongoDB document editor with a workflow-based architecture 
 - URI construction and connection parameters
 - Workflow orchestration (query → edit → review → apply)
 
-**Current Issues**:
-- Basic flag parsing without proper help
-- No shorthand flags
-- Limited validation
+**Current Capabilities** ✅ **IMPROVED**:
+- Comprehensive flag parsing with help text
+- Shorthand flags (-m, -c, -l, -e)
+- ExtJSON mode validation and configuration
+- Connection parameter handling
+- Configuration flags for rendering options
+
+**Enhanced CLI Flags** ✅ **NEW**:
+- `--extjson-mode` / `-m`: ExtJSON format (canonical/relaxed/shell)
+- `--compact` / `-c`: Compact JSON output
+- `--line-numbers` / `-l`: Line number control
+- `--edit` / `-e`: Editor configuration
 
 #### 2. Core Application (`internal/pho/`)
 **Responsibility**: Main application logic and MongoDB integration
@@ -58,8 +66,14 @@ Pho is designed as a MongoDB document editor with a workflow-based architecture 
 - Line numbering for editors
 - Configurable output formats
 
-**Missing Features**:
-- ExtJSON v1 Shell mode
+**Current Capabilities**:
+- Canonical, Relaxed, and Shell ExtJSON formats ✅ **NEW**
+- ExtJSON v1 Shell mode with MongoDB constructors ✅ **NEW**
+- Line numbering for editors
+- Configurable output formats
+- CLI configuration flags ✅ **NEW**
+
+**Remaining Missing Features**:
 - Automatic format detection
 - Custom formatting options
 
@@ -112,6 +126,14 @@ Pho is designed as a MongoDB document editor with a workflow-based architecture 
 - MongoDB BSON compatibility
 - 66.7% test coverage
 
+**⚠️ ExtJSON Architecture Issue**:
+Currently there are **three different ExtJSON implementations** in the codebase:
+1. `bson.MarshalExtJSON` (MongoDB driver) - used directly in renderer
+2. `pkg/extjson` package - provides stable marshalling but unused in renderer
+3. `marshalShellExtJSON` - custom Shell mode implementation
+
+This creates inconsistency where Canonical/Relaxed modes don't use stable marshalling, while Shell mode has completely separate logic. Future refactoring should unify all ExtJSON handling through the `pkg/extjson` package.
+
 ## Data Flow Architecture
 
 ### 1. Query Phase
@@ -148,11 +170,27 @@ Changes → Restore Strategy → MongoDB Operations → Database Updates
 ### `.pho/` Directory Structure
 ```
 .pho/
-├── _meta          # Document hashes for change detection
+├── _meta          # JSON metadata with connection details and document hashes
 └── _dump.jsonl    # Editable document dump
 ```
 
-**Metadata Format** (`_meta`):
+**Enhanced Metadata Format** (`_meta`) ✅ **NEW**:
+```json
+{
+  "URI": "mongodb://localhost:27017",
+  "Database": "mydb",
+  "Collection": "mycoll",
+  "Lines": {
+    "_id::507f1f77bcf86cd799439011|a1b2c3d4e5f6789abcdef123456": {
+      "IdentifiedBy": "_id",
+      "IdentifierValue": "507f1f77bcf86cd799439011",
+      "Checksum": "a1b2c3d4e5f6789abcdef123456"
+    }
+  }
+}
+```
+
+**Legacy Metadata Format** (backward compatible):
 ```
 _id::507f1f77bcf86cd799439011|a1b2c3d4e5f6789abcdef123456
 _id::507f1f77bcf86cd799439012|b2c3d4e5f6789abcdef123456789

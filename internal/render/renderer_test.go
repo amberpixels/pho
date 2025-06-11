@@ -213,10 +213,11 @@ func TestRenderer_FormatResult(t *testing.T) {
 			wantContain: "name",
 		},
 		{
-			name:    "shell mode (not implemented)",
-			options: []Option{WithExtJSONMode(ExtJSONModes.Shell)},
-			input:   bson.M{"name": "test"},
-			wantErr: true,
+			name:        "shell mode",
+			options:     []Option{WithExtJSONMode(ExtJSONModes.Shell)},
+			input:       bson.M{"name": "test"},
+			wantErr:     false,
+			wantContain: "name",
 		},
 		{
 			name:        "with valid JSON flag",
@@ -259,7 +260,7 @@ func TestRenderer_FormatResult(t *testing.T) {
 }
 
 func TestRenderer_FormatResult_IgnoreFailures(t *testing.T) {
-	// Test Shell mode with IgnoreFailures enabled
+	// Test Shell mode with IgnoreFailures enabled - should work now that Shell mode is implemented
 	renderer := NewRenderer(
 		WithExtJSONMode(ExtJSONModes.Shell),
 		WithIgnoreFailures(true),
@@ -267,13 +268,18 @@ func TestRenderer_FormatResult_IgnoreFailures(t *testing.T) {
 	
 	result, err := renderer.FormatResult(bson.M{"name": "test"})
 	
-	// Should not return error due to IgnoreFailures, but result should be nil
+	// Should not return error and should have result since Shell mode now works
 	if err != nil {
-		t.Errorf("FormatResult() with IgnoreFailures should not return error, got %v", err)
+		t.Errorf("FormatResult() with Shell mode should not return error, got %v", err)
 	}
 	
-	if result != nil {
-		t.Errorf("FormatResult() with IgnoreFailures should return nil result, got %v", result)
+	if result == nil {
+		t.Error("FormatResult() with Shell mode should return result, got nil")
+	}
+	
+	// Verify it contains the expected field
+	if !strings.Contains(string(result), "name") {
+		t.Errorf("FormatResult() result should contain 'name', got %v", string(result))
 	}
 }
 
@@ -318,18 +324,18 @@ func TestRenderer_Format(t *testing.T) {
 			},
 		},
 		{
-			name:    "shell mode causes error",
+			name:    "shell mode works",
 			options: []Option{WithExtJSONMode(ExtJSONModes.Shell)},
 			docs:    []bson.M{{"name": "test"}},
-			wantErr: true,
-			checkFn: nil,
+			wantErr: false,
+			checkFn: func(output string) bool { return strings.Contains(output, "name") },
 		},
 		{
 			name:    "shell mode with ignore failures",
 			options: []Option{WithExtJSONMode(ExtJSONModes.Shell), WithIgnoreFailures(true)},
 			docs:    []bson.M{{"name": "test"}},
 			wantErr: false,
-			checkFn: func(output string) bool { return output == "" }, // Should skip the document
+			checkFn: func(output string) bool { return strings.Contains(output, "name") }, // Should contain the document
 		},
 	}
 

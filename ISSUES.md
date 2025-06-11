@@ -28,15 +28,15 @@
 - **NOOP**: Proper handling with `ErrNoop` return
 **Status**: **COMPLETED** - Full CRUD functionality implemented
 
-### 🔥 **Missing ExtJSON v1 Shell Mode**
-**Location**: `internal/render/renderer.go:62`
+### ✅ **Missing ExtJSON v1 Shell Mode** - RESOLVED
+**Location**: `internal/render/renderer.go`
 **Issue**: MongoDB Shell ExtJSON v1 mode not implemented
-```go
-// TODO: implement MongoDB Ext Json v1 Shell mode
-```
-**Impact**: Incompatibility with MongoDB shell workflows
-**Priority**: HIGH
-**Estimated Fix Time**: 8-12 hours
+**Solution**: Implemented complete ExtJSON v1 Shell mode with proper MongoDB constructors:
+- `ObjectId("...")` instead of `{"$oid": "..."}`
+- `ISODate("...")` instead of `{"$date": "..."}`
+- `NumberLong("...")` instead of `{"$numberLong": "..."}`
+- `NumberInt("...")` instead of `{"$numberInt": "..."}`
+**Status**: **COMPLETED** - Full Shell mode compatibility achieved
 
 ## High Priority Issues
 
@@ -63,15 +63,15 @@
 - Updated `readDump()` to handle both JSON array and JSONL formats
 **Status**: **COMPLETED** - File extensions now automatically match content format for proper editor syntax highlighting
 
-### ⚠️ **Missing Database Connection Persistence**
-**Location**: `cmd/pho/main.go:76`
+### ✅ **Missing Database Connection Persistence** - RESOLVED
+**Location**: `cmd/pho/main.go`, `internal/pho/model.go`, `internal/pho/app.go`
 **Issue**: Connection details not stored in metadata for review/apply operations
-```go
-// TODO(db-connection-details-in-meta): implement ^^
-```
-**Impact**: Must specify connection details for every review/apply operation
-**Priority**: HIGH
-**Estimated Fix Time**: 4-6 hours
+**Solution**: Implemented JSON-based metadata storage with connection details:
+- Enhanced `ParsedMeta` structure to include URI, Database, and Collection
+- Added `ConnectDBForApply` method that uses stored metadata
+- Backward compatibility with old line-based metadata format
+- Connection details automatically persisted during dump operations
+**Status**: **COMPLETED** - Apply operations now work without specifying connection details
 
 ### ✅ **No Context Usage in File Operations** - RESOLVED
 **Location**: `internal/pho/app.go`
@@ -84,25 +84,34 @@
 
 ## Medium Priority Issues
 
-### 🔧 **Poor CLI Experience**
-**Locations**: `cmd/pho/main.go:22`, `main.go:32`
-**Issues**:
-- No proper help text with examples
-- No shorthand flags (-q, -h, -d, -c)
-- Basic flag parsing without validation
-**Impact**: Poor user experience, difficult to discover features
+### 🔧 **Poor CLI Experience** ✅ **IMPROVED**
+**Locations**: `cmd/pho/main.go`
+**Issues**: 
+- ~~No proper help text with examples~~ ✅ **IMPROVED** (comprehensive help added)
+- ~~No shorthand flags~~ ✅ **IMPROVED** (added -m, -c, -l, -e flags)
+- ~~Basic flag parsing without validation~~ ✅ **IMPROVED** (added ExtJSON mode validation)
+**New Features Added**:
+- `--extjson-mode` / `-m` for ExtJSON mode selection (canonical/relaxed/shell)
+- `--compact` / `-c` for compact JSON output
+- `--line-numbers` / `-l` for line number control
+- Comprehensive help text with flag descriptions
+**Impact**: Significantly improved user experience and discoverability
 **Priority**: MEDIUM
-**Estimated Fix Time**: 6-8 hours (Kong integration)
+**Status**: **IMPROVED** - Core CLI functionality enhanced, Kong integration remains for future
 
-### 🔧 **Configuration Inflexibility**
+### 🔧 **Configuration Inflexibility** ✅ **IMPROVED**
 **Locations**: Multiple files
 **Issues**:
-- ExtJSON mode hardcoded (`cmd/pho/main.go:55`)
+- ~~ExtJSON mode hardcoded~~ ✅ **FIXED** (now configurable via flags)
 - No verbosity control (`internal/pho/app.go:412`)
 - No configuration file support
-**Impact**: Limited customization options
+**Improvements Made**:
+- ExtJSON mode now configurable with `--extjson-mode` flag
+- Added compact JSON and line numbers configuration
+- Input validation for ExtJSON mode values
+**Impact**: Significantly improved customization options
 **Priority**: MEDIUM
-**Estimated Fix Time**: 8-12 hours
+**Status**: **IMPROVED** - Core configuration flexibility added, verbosity and config files remain for future
 
 ### 🔧 **Performance Issues**
 **Location**: `pkg/extjson/extjson.go:61-62`
@@ -138,6 +147,46 @@
 **Estimated Fix Time**: 1-2 hours
 
 ## Architectural Debt
+
+### 🏗️ **ExtJSON Architecture Inconsistency**
+**Locations**: `internal/render/renderer.go`, `pkg/extjson/extjson.go`
+**Issue**: Three different ExtJSON implementations create architectural inconsistency:
+1. **Direct `bson.MarshalExtJSON`** calls in renderer (Canonical/Relaxed modes)
+2. **`pkg/extjson`** package with stable marshalling (unused in renderer)
+3. **`marshalShellExtJSON`** custom implementation (Shell mode)
+
+**Problems**:
+- Canonical/Relaxed modes don't use stable key ordering
+- Code duplication and inconsistent patterns
+- Different logic paths for different ExtJSON modes
+- `pkg/extjson` package is orphaned
+
+**Proposed Solution**:
+```go
+// Unified ExtJSON interface in pkg/extjson
+type Marshaller interface {
+    Marshal(v any) ([]byte, error)
+}
+
+// Implementations:
+- CanonicalMarshaller (stable bson.MarshalExtJSON wrapper)
+- RelaxedMarshaller (stable bson.MarshalExtJSON wrapper)
+- ShellMarshaller (current marshalShellExtJSON logic)
+
+// Renderer uses unified interface:
+marshaller := extjson.NewMarshaller(cfg.ExtJSONMode)
+result := marshaller.Marshal(document)
+```
+
+**Benefits**:
+- Consistent stable marshalling across all modes
+- Single code path for all ExtJSON handling
+- Better maintainability and extensibility
+- Proper separation of concerns
+
+**Impact**: Improved code maintainability and consistency
+**Priority**: MEDIUM
+**Estimated Fix Time**: 6-8 hours
 
 ### 🏗️ **Tight Coupling to MongoDB**
 **Issue**: All code is tightly coupled to MongoDB-specific types and operations

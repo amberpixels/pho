@@ -21,14 +21,14 @@ Transform Pho into a universal database document editor that supports multiple d
 - Basic CLI interface
 
 ### ❌ **Critical Missing Features**
-- **Missing MongoDB Shell ExtJSON v1 mode**
-- **Database connection details not persisted** in metadata
+- ~~Missing MongoDB Shell ExtJSON v1 mode~~ ✅ **COMPLETED**
+- ~~Database connection details not persisted in metadata~~ ✅ **COMPLETED**
 
 ### ⚠️ **Technical Debt**
 - **Reduced TODO items** (most critical ones resolved) ✅ **IMPROVED**
-- Hardcoded configuration values
+- ~~Hardcoded configuration values~~ ✅ **IMPROVED** (ExtJSON modes now configurable)
 - Inefficient round-trip marshalling in ExtJSON
-- Basic CLI without proper help/shorthand flags
+- Basic CLI without proper help/shorthand flags ✅ **IMPROVED** (new configuration flags added)
 - **Need more test coverage** for remaining packages (internal/pho, internal/render, internal/restore)
 
 ## Development Roadmap
@@ -52,10 +52,11 @@ Transform Pho into a universal database document editor that supports multiple d
 - [ ] **Integration tests** for end-to-end workflows
 - [x] **Error handling tests** for edge cases ✅ **COMPLETED** (comprehensive coverage across all packages)
 
-#### 1.3 MongoDB Shell ExtJSON v1 Support
-- [ ] **Implement ExtJSON v1 Shell mode** in renderer
-- [ ] **Add configuration flags** for ExtJSON modes
-- [ ] **Test compatibility** with MongoDB shell
+#### 1.3 MongoDB Shell ExtJSON v1 Support ✅ COMPLETED
+- [x] **Implement ExtJSON v1 Shell mode** in renderer ✅
+- [x] **Add configuration flags** for ExtJSON modes ✅
+- [x] **Test compatibility** with MongoDB shell ✅
+- [x] **Store database connection details** in metadata ✅
 
 ### Phase 2: CLI Enhancement (Priority: High)
 **Timeline: 1-2 weeks**
