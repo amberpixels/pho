@@ -126,13 +126,18 @@ Pho is designed as a MongoDB document editor with a workflow-based architecture 
 - MongoDB BSON compatibility
 - 66.7% test coverage
 
-**⚠️ ExtJSON Architecture Issue**:
-Currently there are **three different ExtJSON implementations** in the codebase:
-1. `bson.MarshalExtJSON` (MongoDB driver) - used directly in renderer
-2. `pkg/extjson` package - provides stable marshalling but unused in renderer
-3. `marshalShellExtJSON` - custom Shell mode implementation
+**✅ Unified ExtJSON Architecture**:
+All ExtJSON formatting now uses the unified `pkg/extjson` package consistently:
+1. **`pkg/extjson.Marshaller`** - Single interface for all ExtJSON modes
+2. **Canonical Mode**: `NewCanonicalMarshaller()` with stable key ordering
+3. **Relaxed Mode**: `NewRelaxedMarshaller()` with stable key ordering
+4. **Shell Mode**: `NewShellMarshaller()` with MongoDB constructor syntax
 
-This creates inconsistency where Canonical/Relaxed modes don't use stable marshalling, while Shell mode has completely separate logic. Future refactoring should unify all ExtJSON handling through the `pkg/extjson` package.
+**Benefits**:
+- Consistent stable marshalling across all modes
+- Single code path for all ExtJSON handling in renderer
+- Better maintainability and extensibility
+- Proper separation of concerns with configurable compact/indent options
 
 ## Data Flow Architecture
 

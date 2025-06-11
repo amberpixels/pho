@@ -39,7 +39,7 @@ func (b *MongoShellRestorer) Build(c *diff.Change) (string, error) {
 		delete(dataClone, c.IdentifiedBy)
 
 		var err error
-		if marshalledData, err = extjson.NewMarshaller(true).Marshal(dataClone); err != nil {
+		if marshalledData, err = extjson.NewCanonicalMarshaller().Marshal(dataClone); err != nil {
 			return "", fmt.Errorf("could not marshal given obj value: %w", err)
 		}
 
@@ -53,7 +53,7 @@ func (b *MongoShellRestorer) Build(c *diff.Change) (string, error) {
 		var marshalledData []byte
 		if c.Data != nil {
 			var err error
-			if marshalledData, err = extjson.NewMarshaller(true).Marshal(c.Data); err != nil {
+			if marshalledData, err = extjson.NewCanonicalMarshaller().Marshal(c.Data); err != nil {
 				return "", fmt.Errorf("could not marshal given obj value: %w", err)
 			}
 		}

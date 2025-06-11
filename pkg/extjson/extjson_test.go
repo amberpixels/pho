@@ -8,7 +8,7 @@ import (
 )
 
 func TestMarshaller_Marshal_OnSingleObject(t *testing.T) {
-	mrshlr := extjson.NewMarshaller(true)
+	mrshlr := extjson.NewCanonicalMarshaller()
 
 	testData := bson.M{
 		"_id":  "1",
@@ -48,7 +48,7 @@ func TestMarshaller_Marshal_OnArray(t *testing.T) {
 		},
 	}
 
-	_, err := extjson.NewMarshaller(true).Marshal(testData)
+	_, err := extjson.NewCanonicalMarshaller().Marshal(testData)
 	if err == nil {
 		t.Errorf("marshal expects to fail yet as not supported")
 		return

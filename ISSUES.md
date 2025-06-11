@@ -148,45 +148,37 @@
 
 ## Architectural Debt
 
-### 🏗️ **ExtJSON Architecture Inconsistency**
+### ✅ **ExtJSON Architecture Inconsistency** - RESOLVED
 **Locations**: `internal/render/renderer.go`, `pkg/extjson/extjson.go`
-**Issue**: Three different ExtJSON implementations create architectural inconsistency:
-1. **Direct `bson.MarshalExtJSON`** calls in renderer (Canonical/Relaxed modes)
-2. **`pkg/extjson`** package with stable marshalling (unused in renderer)
-3. **`marshalShellExtJSON`** custom implementation (Shell mode)
+**Issue**: Three different ExtJSON implementations created architectural inconsistency
+**Solution**: Implemented unified ExtJSON architecture using `pkg/extjson` package:
 
-**Problems**:
-- Canonical/Relaxed modes don't use stable key ordering
-- Code duplication and inconsistent patterns
-- Different logic paths for different ExtJSON modes
-- `pkg/extjson` package is orphaned
-
-**Proposed Solution**:
+**Implementation**:
 ```go
 // Unified ExtJSON interface in pkg/extjson
-type Marshaller interface {
-    Marshal(v any) ([]byte, error)
+type Marshaller struct {
+    mode ExtJSONMode // canonical, relaxed, shell
+    // ... configuration fields
 }
 
-// Implementations:
-- CanonicalMarshaller (stable bson.MarshalExtJSON wrapper)
-- RelaxedMarshaller (stable bson.MarshalExtJSON wrapper)
-- ShellMarshaller (current marshalShellExtJSON logic)
+// Factory methods:
+- NewCanonicalMarshaller() - stable Canonical ExtJSON v2
+- NewRelaxedMarshaller() - stable Relaxed ExtJSON v2  
+- NewShellMarshaller() - MongoDB Shell ExtJSON v1 constructors
 
-// Renderer uses unified interface:
-marshaller := extjson.NewMarshaller(cfg.ExtJSONMode)
+// Renderer now uses unified interface:
+marshaller := extjson.NewCanonicalMarshaller().WithCompact(cfg.CompactJSON)
 result := marshaller.Marshal(document)
 ```
 
-**Benefits**:
-- Consistent stable marshalling across all modes
-- Single code path for all ExtJSON handling
-- Better maintainability and extensibility
-- Proper separation of concerns
+**Benefits Achieved**:
+- ✅ Consistent stable marshalling across all modes
+- ✅ Single code path for all ExtJSON handling in renderer
+- ✅ Better maintainability and extensibility
+- ✅ Proper separation of concerns with configurable formatting
 
-**Impact**: Improved code maintainability and consistency
-**Priority**: MEDIUM
-**Estimated Fix Time**: 6-8 hours
+**Status**: **COMPLETED** - All ExtJSON modes now use unified `pkg/extjson` package
+**Impact**: Significantly improved code maintainability and consistency
 
 ### 🏗️ **Tight Coupling to MongoDB**
 **Issue**: All code is tightly coupled to MongoDB-specific types and operations

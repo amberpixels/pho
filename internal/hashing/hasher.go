@@ -46,7 +46,7 @@ func Hash(result bson.M) (*HashData, error) {
 
 	identifierValue := NewIdentifierValue(unknown)
 
-	canonicalExtJson, err := extjson.NewMarshaller(true).Marshal(result)
+	canonicalExtJson, err := extjson.NewCanonicalMarshaller().Marshal(result)
 	if err != nil {
 		return nil, fmt.Errorf("invalid bson result: %w", err)
 	}
