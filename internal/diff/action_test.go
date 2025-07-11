@@ -220,19 +220,19 @@ func TestAction_UnmarshalText(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var action Action
 			err := action.UnmarshalText([]byte(tt.input))
-			
+
 			if tt.wantErr {
 				if err == nil {
 					t.Errorf("UnmarshalText() expected error, got nil")
 				}
 				return
 			}
-			
+
 			if err != nil {
 				t.Errorf("UnmarshalText() unexpected error: %v", err)
 				return
 			}
-			
+
 			if action != tt.expected {
 				t.Errorf("UnmarshalText() = %v, want %v", action, tt.expected)
 			}
@@ -282,19 +282,19 @@ func TestParseAction(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := ParseAction(tt.input)
-			
+
 			if tt.wantErr {
 				if err == nil {
 					t.Errorf("ParseAction() expected error, got nil")
 				}
 				return
 			}
-			
+
 			if err != nil {
 				t.Errorf("ParseAction() unexpected error: %v", err)
 				return
 			}
-			
+
 			if result != tt.expected {
 				t.Errorf("ParseAction() = %v, want %v", result, tt.expected)
 			}
@@ -334,7 +334,7 @@ func TestAction_JSONMarshaling(t *testing.T) {
 				t.Errorf("json.Marshal() error = %v", err)
 				return
 			}
-			
+
 			// Unmarshal from JSON
 			var unmarshaled Action
 			err = json.Unmarshal(data, &unmarshaled)
@@ -342,7 +342,7 @@ func TestAction_JSONMarshaling(t *testing.T) {
 				t.Errorf("json.Unmarshal() error = %v", err)
 				return
 			}
-			
+
 			// Compare
 			if unmarshaled != tt.action {
 				t.Errorf("JSON round-trip failed: got %v, want %v", unmarshaled, tt.action)
@@ -354,9 +354,9 @@ func TestAction_JSONMarshaling(t *testing.T) {
 func TestActionsDict_BackwardCompatibility(t *testing.T) {
 	// Test that ActionsDict still works for backward compatibility
 	tests := []struct {
-		name     string
-		old      Action
-		new      Action
+		name string
+		old  Action
+		new  Action
 	}{
 		{
 			name: "Noop compatibility",

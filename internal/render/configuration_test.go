@@ -117,7 +117,7 @@ func TestNewConfiguration(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			config := NewConfiguration(tt.options...)
-			
+
 			if config.ShowLineNumbers != tt.expected.ShowLineNumbers {
 				t.Errorf("ShowLineNumbers = %v, want %v", config.ShowLineNumbers, tt.expected.ShowLineNumbers)
 			}
@@ -161,9 +161,9 @@ func TestConfiguration_Clone(t *testing.T) {
 		WithMinimizedJSON(true),
 		WithIgnoreFailures(true),
 	)
-	
+
 	cloned := original.Clone()
-	
+
 	// Verify clone has same values
 	if cloned.ShowLineNumbers != original.ShowLineNumbers {
 		t.Errorf("Clone ShowLineNumbers = %v, want %v", cloned.ShowLineNumbers, original.ShowLineNumbers)
@@ -183,12 +183,12 @@ func TestConfiguration_Clone(t *testing.T) {
 	if cloned.IgnoreFailures != original.IgnoreFailures {
 		t.Errorf("Clone IgnoreFailures = %v, want %v", cloned.IgnoreFailures, original.IgnoreFailures)
 	}
-	
+
 	// Verify they are different objects
 	if cloned == original {
 		t.Error("Clone should return a different object")
 	}
-	
+
 	// Verify modifying clone doesn't affect original
 	cloned.ShowLineNumbers = !cloned.ShowLineNumbers
 	if cloned.ShowLineNumbers == original.ShowLineNumbers {
@@ -210,7 +210,7 @@ func TestWithShowLineNumbers(t *testing.T) {
 			config := &Configuration{}
 			option := WithShowLineNumbers(tt.value)
 			option(config)
-			
+
 			if config.ShowLineNumbers != tt.value {
 				t.Errorf("WithShowLineNumbers(%v) = %v, want %v", tt.value, config.ShowLineNumbers, tt.value)
 			}
@@ -232,7 +232,7 @@ func TestWithAsValidJSON(t *testing.T) {
 			config := &Configuration{}
 			option := WithAsValidJSON(tt.value)
 			option(config)
-			
+
 			if config.AsValidJSON != tt.value {
 				t.Errorf("WithAsValidJSON(%v) = %v, want %v", tt.value, config.AsValidJSON, tt.value)
 			}
@@ -256,7 +256,7 @@ func TestWithExtJSONMode(t *testing.T) {
 			config := &Configuration{}
 			option := WithExtJSONMode(tt.value)
 			option(config)
-			
+
 			if config.ExtJSONMode != tt.value {
 				t.Errorf("WithExtJSONMode(%v) = %v, want %v", tt.value, config.ExtJSONMode, tt.value)
 			}
@@ -278,7 +278,7 @@ func TestWithCompactJSON(t *testing.T) {
 			config := &Configuration{}
 			option := WithCompactJSON(tt.value)
 			option(config)
-			
+
 			if config.CompactJSON != tt.value {
 				t.Errorf("WithCompactJSON(%v) = %v, want %v", tt.value, config.CompactJSON, tt.value)
 			}
@@ -300,7 +300,7 @@ func TestWithMinimizedJSON(t *testing.T) {
 			config := &Configuration{}
 			option := WithMinimizedJSON(tt.value)
 			option(config)
-			
+
 			if config.MinimizedJSON != tt.value {
 				t.Errorf("WithMinimizedJSON(%v) = %v, want %v", tt.value, config.MinimizedJSON, tt.value)
 			}
@@ -322,7 +322,7 @@ func TestWithIgnoreFailures(t *testing.T) {
 			config := &Configuration{}
 			option := WithIgnoreFailures(tt.value)
 			option(config)
-			
+
 			if config.IgnoreFailures != tt.value {
 				t.Errorf("WithIgnoreFailures(%v) = %v, want %v", tt.value, config.IgnoreFailures, tt.value)
 			}
@@ -361,8 +361,8 @@ func TestRoundTripJSON(t *testing.T) {
 			wantErr:  false,
 		},
 		{
-			name: "nil input",
-			input: (*Configuration)(nil),
+			name:     "nil input",
+			input:    (*Configuration)(nil),
 			expected: &Configuration{},
 			wantErr:  false,
 		},
@@ -371,12 +371,12 @@ func TestRoundTripJSON(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := RoundTripJSON(tt.input, tt.expected)
-			
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("RoundTripJSON() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			
+
 			if !tt.wantErr {
 				// For successful cases, verify the output is not nil
 				if tt.expected == nil {
@@ -391,7 +391,7 @@ func TestRoundTripJSON_InvalidInput(t *testing.T) {
 	// Test with invalid input that can't be marshaled to JSON
 	invalidInput := func() {} // functions can't be marshaled to JSON
 	output := &Configuration{}
-	
+
 	err := RoundTripJSON(invalidInput, output)
 	if err == nil {
 		t.Error("RoundTripJSON() expected error for invalid input, got nil")
@@ -402,7 +402,7 @@ func TestRoundTripJSON_InvalidOutput(t *testing.T) {
 	// Test with valid input but invalid output type
 	input := map[string]interface{}{"key": "value"}
 	var output string // string can't hold the map structure
-	
+
 	err := RoundTripJSON(input, &output)
 	if err == nil {
 		t.Error("RoundTripJSON() expected error for type mismatch, got nil")
@@ -419,7 +419,7 @@ func TestOptions_Chaining(t *testing.T) {
 		WithMinimizedJSON(true),
 		WithIgnoreFailures(true),
 	)
-	
+
 	if !config.ShowLineNumbers {
 		t.Error("Expected ShowLineNumbers to be true")
 	}
@@ -448,7 +448,7 @@ func TestOptions_Override(t *testing.T) {
 		WithExtJSONMode(ExtJSONModes.Canonical),
 		WithExtJSONMode(ExtJSONModes.Relaxed), // Should override canonical
 	)
-	
+
 	if !config.ShowLineNumbers {
 		t.Error("Expected ShowLineNumbers to be true (overridden)")
 	}

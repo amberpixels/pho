@@ -43,19 +43,19 @@ func TestNewIdentifierValue(t *testing.T) {
 					}
 				}
 			}()
-			
+
 			id := NewIdentifierValue(tt.value)
-			
+
 			if tt.wantErr {
 				t.Errorf("NewIdentifierValue() expected panic, got success")
 				return
 			}
-			
+
 			if id == nil {
 				t.Errorf("NewIdentifierValue() returned nil")
 				return
 			}
-			
+
 			if id.Value != tt.value {
 				t.Errorf("NewIdentifierValue() value mismatch: got %v, want %v", id.Value, tt.value)
 			}
@@ -85,7 +85,7 @@ func TestIdentifierValue_String(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			id := &IdentifierValue{Value: tt.value}
 			result := id.String()
-			
+
 			if result != tt.expected {
 				t.Errorf("String() = %v, want %v", result, tt.expected)
 			}
@@ -141,24 +141,24 @@ func TestParseIdentifierValue(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := ParseIdentifierValue(tt.input)
-			
+
 			if tt.wantErr {
 				if err == nil {
 					t.Errorf("ParseIdentifierValue() expected error, got nil")
 				}
 				return
 			}
-			
+
 			if err != nil {
 				t.Errorf("ParseIdentifierValue() unexpected error: %v", err)
 				return
 			}
-			
+
 			if result == nil {
 				t.Errorf("ParseIdentifierValue() returned nil result")
 				return
 			}
-			
+
 			// Compare values based on type
 			switch expectedVal := tt.wantValue.(type) {
 			case primitive.ObjectID:
@@ -201,16 +201,16 @@ func TestIdentifierValue_RoundTrip(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create identifier value
 			original := &IdentifierValue{Value: tt.value}
-			
+
 			// Convert to string
 			str := original.String()
-			
+
 			// Parse back
 			parsed, err := ParseIdentifierValue(str)
 			if err != nil {
 				t.Fatalf("ParseIdentifierValue() failed: %v", err)
 			}
-			
+
 			// Compare values
 			switch originalVal := tt.value.(type) {
 			case primitive.ObjectID:

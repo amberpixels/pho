@@ -55,12 +55,12 @@ func NewApp(opts ...Option) *App {
 // getDumpFileExtension determines the appropriate file extension based on renderer configuration
 func (app *App) getDumpFileExtension() string {
 	config := app.render.GetConfiguration()
-	
+
 	// If output is valid JSON (array format), use .json extension
 	if config.AsValidJSON {
 		return ".json"
 	}
-	
+
 	// For compact JSON (line-by-line) or default, use .jsonl extension
 	return ".jsonl"
 }
@@ -102,12 +102,12 @@ func (app *App) ConnectDBForApply(ctx context.Context) error {
 		}
 
 		app.dbClient = client
-		
+
 		// Update app configuration to match metadata for consistency
 		app.uri = metadata.URI
 		app.dbName = metadata.Database
 		app.collectionName = metadata.Collection
-		
+
 		return nil
 	}
 
@@ -351,7 +351,7 @@ func (app *App) readMeta(ctx context.Context) (*ParsedMeta, error) {
 	// Fall back to old line-based format for backward compatibility
 	lines := strings.Split(string(data), "\n")
 	meta := map[string]*hashing.HashData{}
-	
+
 	for iLine, line := range lines {
 		// Check for context cancellation
 		select {
@@ -359,7 +359,7 @@ func (app *App) readMeta(ctx context.Context) (*ParsedMeta, error) {
 			return nil, ctx.Err()
 		default:
 		}
-		
+
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
@@ -399,7 +399,7 @@ func (app *App) readDump(ctx context.Context) ([]bson.M, error) {
 	}
 
 	var results []bson.M
-	
+
 	// Handle different file formats based on extension
 	if app.getDumpFileExtension() == ".json" {
 		// For JSON array format
@@ -408,7 +408,7 @@ func (app *App) readDump(ctx context.Context) ([]bson.M, error) {
 		if err := decoder.Decode(&jsonArray); err != nil {
 			return nil, fmt.Errorf("could not decode JSON array dump: %w", err)
 		}
-		
+
 		results = make([]bson.M, len(jsonArray))
 		for i, raw := range jsonArray {
 			results[i] = bson.M(raw)
@@ -419,13 +419,13 @@ func (app *App) readDump(ctx context.Context) ([]bson.M, error) {
 		if err != nil {
 			return nil, fmt.Errorf("could not decode JSONL dump: %w", err)
 		}
-		
+
 		results = make([]bson.M, len(raws))
 		for i, raw := range raws {
 			results[i] = bson.M(raw)
 		}
 	}
-	
+
 	return results, nil
 }
 

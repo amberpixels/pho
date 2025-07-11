@@ -24,7 +24,7 @@ func TestErrNoop_Comparison(t *testing.T) {
 	testFunc := func() error {
 		return ErrNoop
 	}
-	
+
 	err := testFunc()
 	if err != ErrNoop {
 		t.Error("Function should return ErrNoop")

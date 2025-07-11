@@ -16,31 +16,31 @@ func TestParsedMeta(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create hash data: %v", err)
 	}
-	
+
 	hashData2, err := hashing.Hash(bson.M{"_id": "test2", "name": "doc2"})
 	if err != nil {
 		t.Fatalf("Failed to create hash data: %v", err)
 	}
-	
+
 	meta := &ParsedMeta{
 		Lines: map[string]*hashing.HashData{
 			hashData1.GetIdentifier(): hashData1,
 			hashData2.GetIdentifier(): hashData2,
 		},
 	}
-	
+
 	// Test that we can access the lines
 	if len(meta.Lines) != 2 {
 		t.Errorf("ParsedMeta.Lines length = %d, want 2", len(meta.Lines))
 	}
-	
+
 	// Test that we can retrieve specific hash data
 	id1 := hashData1.GetIdentifier()
 	retrievedHash, exists := meta.Lines[id1]
 	if !exists {
 		t.Errorf("ParsedMeta.Lines[%s] not found", id1)
 	}
-	
+
 	if retrievedHash.GetChecksum() != hashData1.GetChecksum() {
 		t.Errorf("Retrieved hash checksum mismatch")
 	}
@@ -140,16 +140,16 @@ func TestDumpDoc_UnmarshalJSON(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var doc DumpDoc
 			err := doc.UnmarshalJSON([]byte(tt.jsonData))
-			
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("DumpDoc.UnmarshalJSON() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			
+
 			if tt.wantErr {
 				return
 			}
-			
+
 			// For successful cases, verify some key fields exist
 			// Note: We don't do deep equality because ExtJSON parsing can have subtle differences
 			if len(tt.expected) > 0 {
@@ -176,13 +176,13 @@ func TestDumpDoc_conversion(t *testing.T) {
 		"active": true,
 		"tags":   []string{"test", "document"},
 	}
-	
+
 	// Convert to DumpDoc
 	dumpDoc := DumpDoc(originalBson)
-	
+
 	// Convert back to bson.M
 	resultBson := bson.M(dumpDoc)
-	
+
 	if !reflect.DeepEqual(originalBson, resultBson) {
 		t.Errorf("DumpDoc conversion failed")
 		t.Errorf("Original: %v", originalBson)
@@ -247,7 +247,7 @@ func TestDumpDoc_withRealExtJSON(t *testing.T) {
 				t.Errorf("DumpDoc.UnmarshalJSON() unexpected error: %v", err)
 				return
 			}
-			
+
 			if !tt.checkFn(doc) {
 				t.Errorf("DumpDoc.UnmarshalJSON() result check failed for %s", tt.name)
 				t.Errorf("Document: %v", doc)
@@ -260,24 +260,24 @@ func TestDumpDoc_withRealExtJSON(t *testing.T) {
 func TestDumpDoc_typeSafety(t *testing.T) {
 	// Test that DumpDoc is indeed bson.M underneath
 	var doc DumpDoc = DumpDoc(make(bson.M))
-	
+
 	// Should be able to add fields like a regular bson.M
 	doc["test"] = "value"
 	doc["number"] = 42
 	doc["bool"] = true
-	
+
 	if len(doc) != 3 {
 		t.Errorf("DumpDoc length = %d, want 3", len(doc))
 	}
-	
+
 	if doc["test"] != "value" {
 		t.Errorf("DumpDoc[\"test\"] = %v, want \"value\"", doc["test"])
 	}
-	
+
 	if doc["number"] != 42 {
 		t.Errorf("DumpDoc[\"number\"] = %v, want 42", doc["number"])
 	}
-	
+
 	if doc["bool"] != true {
 		t.Errorf("DumpDoc[\"bool\"] = %v, want true", doc["bool"])
 	}
@@ -288,19 +288,19 @@ func TestParsedMeta_emptyLines(t *testing.T) {
 	meta := &ParsedMeta{
 		Lines: make(map[string]*hashing.HashData),
 	}
-	
+
 	if len(meta.Lines) != 0 {
 		t.Errorf("Empty ParsedMeta.Lines length = %d, want 0", len(meta.Lines))
 	}
-	
+
 	// Test adding to empty map
 	hashData, err := hashing.Hash(bson.M{"_id": "test", "name": "doc"})
 	if err != nil {
 		t.Fatalf("Failed to create hash data: %v", err)
 	}
-	
+
 	meta.Lines[hashData.GetIdentifier()] = hashData
-	
+
 	if len(meta.Lines) != 1 {
 		t.Errorf("ParsedMeta.Lines length after add = %d, want 1", len(meta.Lines))
 	}

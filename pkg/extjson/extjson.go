@@ -105,7 +105,7 @@ func (m *Marshaller) Marshal(result any) ([]byte, error) {
 	if err = json.Unmarshal(marshalled, &temp); err != nil {
 		return nil, fmt.Errorf("stabilizing marshalled bson failed on json unmarshalling: %w", err)
 	}
-	
+
 	// Apply formatting based on compact setting
 	if m.compact || (m.indent == "" && m.prefix == "") {
 		if marshalled, err = json.Marshal(temp); err != nil {
@@ -147,56 +147,56 @@ func (m *Marshaller) marshalShellValue(v any, buf *bytes.Buffer, indent int) err
 		buf.WriteString(`ObjectId("`)
 		buf.WriteString(val.Hex())
 		buf.WriteString(`")`)
-		
+
 	case primitive.DateTime:
 		t := val.Time()
 		buf.WriteString(`ISODate("`)
 		buf.WriteString(t.UTC().Format("2006-01-02T15:04:05.000Z"))
 		buf.WriteString(`")`)
-		
+
 	case time.Time:
 		buf.WriteString(`ISODate("`)
 		buf.WriteString(val.UTC().Format("2006-01-02T15:04:05.000Z"))
 		buf.WriteString(`")`)
-		
+
 	case int64:
 		buf.WriteString(`NumberLong("`)
 		buf.WriteString(strconv.FormatInt(val, 10))
 		buf.WriteString(`")`)
-		
+
 	case int32:
 		buf.WriteString(`NumberInt("`)
 		buf.WriteString(strconv.FormatInt(int64(val), 10))
 		buf.WriteString(`")`)
-		
+
 	case float64:
 		buf.WriteString(strconv.FormatFloat(val, 'g', -1, 64))
-		
+
 	case string:
 		buf.WriteString(`"`)
 		buf.WriteString(strings.ReplaceAll(strings.ReplaceAll(val, `\`, `\\`), `"`, `\"`))
 		buf.WriteString(`"`)
-		
+
 	case bool:
 		if val {
 			buf.WriteString("true")
 		} else {
 			buf.WriteString("false")
 		}
-		
+
 	case primitive.Binary:
 		buf.WriteString(`BinData(`)
 		buf.WriteString(strconv.Itoa(int(val.Subtype)))
 		buf.WriteString(`, "`)
 		buf.WriteString(base64.StdEncoding.EncodeToString(val.Data))
 		buf.WriteString(`")`)
-		
+
 	case primitive.Regex:
 		buf.WriteString(`/`)
 		buf.WriteString(val.Pattern)
 		buf.WriteString(`/`)
 		buf.WriteString(val.Options)
-		
+
 	case bson.M:
 		buf.WriteString("{")
 		if !m.compact {
@@ -233,7 +233,7 @@ func (m *Marshaller) marshalShellValue(v any, buf *bytes.Buffer, indent int) err
 			buf.WriteString(strings.Repeat("  ", indent))
 		}
 		buf.WriteString("}")
-		
+
 	case []any:
 		buf.WriteString("[")
 		if !m.compact {
@@ -260,7 +260,7 @@ func (m *Marshaller) marshalShellValue(v any, buf *bytes.Buffer, indent int) err
 			buf.WriteString(strings.Repeat("  ", indent))
 		}
 		buf.WriteString("]")
-		
+
 	default:
 		// Handle interface{} and reflect.Value for more complex types
 		rv := reflect.ValueOf(v)
@@ -300,7 +300,7 @@ func (m *Marshaller) marshalShellValue(v any, buf *bytes.Buffer, indent int) err
 				buf.WriteString(strings.Repeat("  ", indent))
 			}
 			buf.WriteString("}")
-			
+
 		case reflect.Slice, reflect.Array:
 			buf.WriteString("[")
 			if !m.compact {
@@ -327,12 +327,12 @@ func (m *Marshaller) marshalShellValue(v any, buf *bytes.Buffer, indent int) err
 				buf.WriteString(strings.Repeat("  ", indent))
 			}
 			buf.WriteString("]")
-			
+
 		default:
 			// Fallback to string representation
 			buf.WriteString(fmt.Sprintf("%v", v))
 		}
 	}
-	
+
 	return nil
 }

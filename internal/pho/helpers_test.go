@@ -67,12 +67,12 @@ func TestParseQuery(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := parseQuery(tt.queryStr)
-			
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("parseQuery() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			
+
 			if !tt.wantErr && !reflect.DeepEqual(result, tt.expected) {
 				t.Errorf("parseQuery() = %v, want %v", result, tt.expected)
 			}
@@ -107,8 +107,8 @@ func TestParseSort(t *testing.T) {
 			expected: bson.D{{Key: "name", Value: 1}},
 		},
 		{
-			name:     "multiple fields",
-			sortStr:  "name,-age,+status",
+			name:    "multiple fields",
+			sortStr: "name,-age,+status",
 			expected: bson.D{
 				{Key: "name", Value: 1},
 				{Key: "age", Value: -1},
@@ -116,16 +116,16 @@ func TestParseSort(t *testing.T) {
 			},
 		},
 		{
-			name:     "complex field names",
-			sortStr:  "user.name,-user.age",
+			name:    "complex field names",
+			sortStr: "user.name,-user.age",
 			expected: bson.D{
 				{Key: "user.name", Value: 1},
 				{Key: "user.age", Value: -1},
 			},
 		},
 		{
-			name:     "field with underscores",
-			sortStr:  "created_at,-updated_at",
+			name:    "field with underscores",
+			sortStr: "created_at,-updated_at",
 			expected: bson.D{
 				{Key: "created_at", Value: 1},
 				{Key: "updated_at", Value: -1},
@@ -136,14 +136,13 @@ func TestParseSort(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := parseSort(tt.sortStr)
-			
+
 			if !reflect.DeepEqual(result, tt.expected) {
 				t.Errorf("parseSort() = %v, want %v", result, tt.expected)
 			}
 		})
 	}
 }
-
 
 func TestParseProjection(t *testing.T) {
 	tests := []struct {
@@ -167,8 +166,8 @@ func TestParseProjection(t *testing.T) {
 			expected: bson.D{{Key: "_id", Value: -1}},
 		},
 		{
-			name:     "multiple fields",
-			projStr:  "name,email,-_id",
+			name:    "multiple fields",
+			projStr: "name,email,-_id",
 			expected: bson.D{
 				{Key: "name", Value: 1},
 				{Key: "email", Value: 1},
@@ -180,7 +179,7 @@ func TestParseProjection(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := parseProjection(tt.projStr)
-			
+
 			if !reflect.DeepEqual(result, tt.expected) {
 				t.Errorf("parseProjection() = %v, want %v", result, tt.expected)
 			}
@@ -201,8 +200,8 @@ func TestParseSort_EdgeCases(t *testing.T) {
 		expected bson.D
 	}{
 		{
-			name:     "only commas",
-			sortStr:  ",,",
+			name:    "only commas",
+			sortStr: ",,",
 			expected: bson.D{
 				{Key: "", Value: 1},
 				{Key: "", Value: 1},
@@ -210,16 +209,16 @@ func TestParseSort_EdgeCases(t *testing.T) {
 			},
 		},
 		{
-			name:     "trailing comma",
-			sortStr:  "name,",
+			name:    "trailing comma",
+			sortStr: "name,",
 			expected: bson.D{
 				{Key: "name", Value: 1},
 				{Key: "", Value: 1},
 			},
 		},
 		{
-			name:     "leading comma",
-			sortStr:  ",name",
+			name:    "leading comma",
+			sortStr: ",name",
 			expected: bson.D{
 				{Key: "", Value: 1},
 				{Key: "name", Value: 1},
@@ -250,7 +249,7 @@ func TestParseSort_EdgeCases(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := parseSort(tt.sortStr)
-			
+
 			if !reflect.DeepEqual(result, tt.expected) {
 				t.Errorf("parseSort() = %v, want %v", result, tt.expected)
 			}
@@ -261,10 +260,10 @@ func TestParseSort_EdgeCases(t *testing.T) {
 // Test that parseProjection is indeed using parseSort internally
 func TestParseProjection_UsesParseSort(t *testing.T) {
 	input := "name,-_id"
-	
+
 	projResult := parseProjection(input)
 	sortResult := parseSort(input)
-	
+
 	if !reflect.DeepEqual(projResult, sortResult) {
 		t.Errorf("parseProjection() should use parseSort() internally, but results differ")
 		t.Errorf("parseProjection() = %v", projResult)

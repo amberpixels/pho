@@ -35,11 +35,11 @@ func TestNewMongoShellRestorer(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			restorer := NewMongoShellRestorer(tt.collectionName)
-			
+
 			if restorer == nil {
 				t.Fatal("NewMongoShellRestorer() returned nil")
 			}
-			
+
 			if restorer.collectionName != tt.collectionName {
 				t.Errorf("collectionName = %v, want %v", restorer.collectionName, tt.collectionName)
 			}
@@ -49,7 +49,7 @@ func TestNewMongoShellRestorer(t *testing.T) {
 
 func TestMongoShellRestorer_Build_ValidationErrors(t *testing.T) {
 	restorer := NewMongoShellRestorer("testcoll")
-	
+
 	tests := []struct {
 		name          string
 		change        *diff.Change
@@ -77,8 +77,8 @@ func TestMongoShellRestorer_Build_ValidationErrors(t *testing.T) {
 			errorContains: "identifiedBy+identifierValue are required",
 		},
 		{
-			name: "nil change",
-			change: nil,
+			name:    "nil change",
+			change:  nil,
 			wantErr: true,
 		},
 	}
@@ -86,12 +86,12 @@ func TestMongoShellRestorer_Build_ValidationErrors(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := restorer.Build(tt.change)
-			
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Build() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			
+
 			if tt.wantErr && tt.errorContains != "" && err != nil {
 				if !strings.Contains(err.Error(), tt.errorContains) {
 					t.Errorf("Build() error = %v, want error containing %v", err, tt.errorContains)
@@ -103,7 +103,7 @@ func TestMongoShellRestorer_Build_ValidationErrors(t *testing.T) {
 
 func TestMongoShellRestorer_Build_UpdateAction(t *testing.T) {
 	restorer := NewMongoShellRestorer("users")
-	
+
 	tests := []struct {
 		name          string
 		change        *diff.Change
@@ -167,26 +167,26 @@ func TestMongoShellRestorer_Build_UpdateAction(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := restorer.Build(tt.change)
-			
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Build() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			
+
 			if tt.wantErr {
 				if tt.errorContains != "" && (err == nil || !strings.Contains(err.Error(), tt.errorContains)) {
 					t.Errorf("Build() error = %v, want error containing %v", err, tt.errorContains)
 				}
 				return
 			}
-			
+
 			// Check that the result contains expected strings
 			for _, want := range tt.wantContains {
 				if !strings.Contains(result, want) {
 					t.Errorf("Build() result = %v, want to contain %v", result, want)
 				}
 			}
-			
+
 			// Ensure _id field is excluded from $set operation (it shouldn't be updated)
 			if tt.change.Data != nil {
 				if _, hasId := tt.change.Data["_id"]; hasId && tt.change.IdentifiedBy == "_id" {
@@ -213,7 +213,7 @@ func TestMongoShellRestorer_Build_UpdateAction(t *testing.T) {
 
 func TestMongoShellRestorer_Build_AddAction(t *testing.T) {
 	restorer := NewMongoShellRestorer("products")
-	
+
 	tests := []struct {
 		name         string
 		change       *diff.Change
@@ -258,19 +258,19 @@ func TestMongoShellRestorer_Build_AddAction(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := restorer.Build(tt.change)
-			
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Build() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			
+
 			if !tt.wantErr {
 				for _, want := range tt.wantContains {
 					if !strings.Contains(result, want) {
 						t.Errorf("Build() result = %v, want to contain %v", result, want)
 					}
 				}
-				
+
 				// Check that it ends with semicolon
 				if !strings.HasSuffix(result, ");") {
 					t.Errorf("Build() result should end with ');', got %v", result)
@@ -282,7 +282,7 @@ func TestMongoShellRestorer_Build_AddAction(t *testing.T) {
 
 func TestMongoShellRestorer_Build_DeleteAction(t *testing.T) {
 	restorer := NewMongoShellRestorer("logs")
-	
+
 	tests := []struct {
 		name         string
 		change       *diff.Change
@@ -329,18 +329,18 @@ func TestMongoShellRestorer_Build_DeleteAction(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := restorer.Build(tt.change)
-			
+
 			if err != nil {
 				t.Errorf("Build() unexpected error: %v", err)
 				return
 			}
-			
+
 			for _, want := range tt.wantContains {
 				if !strings.Contains(result, want) {
 					t.Errorf("Build() result = %v, want to contain %v", result, want)
 				}
 			}
-			
+
 			// Check that it ends with semicolon
 			if !strings.HasSuffix(result, ");") {
 				t.Errorf("Build() result should end with ');', got %v", result)
@@ -351,19 +351,19 @@ func TestMongoShellRestorer_Build_DeleteAction(t *testing.T) {
 
 func TestMongoShellRestorer_Build_NoopAction(t *testing.T) {
 	restorer := NewMongoShellRestorer("collection")
-	
+
 	change := &diff.Change{
 		Action:          diff.ActionNoop,
 		IdentifiedBy:    "_id",
 		IdentifierValue: "12345",
 	}
-	
+
 	result, err := restorer.Build(change)
-	
+
 	if err != ErrNoop {
 		t.Errorf("Build() error = %v, want ErrNoop", err)
 	}
-	
+
 	if result != "" {
 		t.Errorf("Build() result = %v, want empty string for noop", result)
 	}
@@ -371,23 +371,23 @@ func TestMongoShellRestorer_Build_NoopAction(t *testing.T) {
 
 func TestMongoShellRestorer_Build_InvalidAction(t *testing.T) {
 	restorer := NewMongoShellRestorer("collection")
-	
+
 	change := &diff.Change{
 		Action:          diff.Action(99), // Invalid action
 		IdentifiedBy:    "_id",
 		IdentifierValue: "12345",
 	}
-	
+
 	result, err := restorer.Build(change)
-	
+
 	if err == nil {
 		t.Error("Build() expected error for invalid action, got nil")
 	}
-	
+
 	if !strings.Contains(err.Error(), "invalid action type") {
 		t.Errorf("Build() error = %v, want error containing 'invalid action type'", err)
 	}
-	
+
 	if result != "" {
 		t.Errorf("Build() result = %v, want empty string for error", result)
 	}
@@ -419,19 +419,19 @@ func TestMongoShellRestorer_Build_CollectionNameEscaping(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			restorer := NewMongoShellRestorer(tt.collectionName)
-			
+
 			change := &diff.Change{
 				Action:          diff.ActionDeleted,
 				IdentifiedBy:    "_id",
 				IdentifierValue: "test",
 			}
-			
+
 			result, err := restorer.Build(change)
 			if err != nil {
 				t.Errorf("Build() unexpected error: %v", err)
 				return
 			}
-			
+
 			if !strings.Contains(result, tt.expectedInCmd) {
 				t.Errorf("Build() result = %v, want to contain %v", result, tt.expectedInCmd)
 			}
@@ -442,31 +442,31 @@ func TestMongoShellRestorer_Build_CollectionNameEscaping(t *testing.T) {
 func TestMongoShellRestorer_Build_DataCloning(t *testing.T) {
 	// Test that data cloning works and doesn't mutate original
 	restorer := NewMongoShellRestorer("test")
-	
+
 	originalData := bson.M{
 		"_id":  "12345",
 		"name": "original",
 		"tags": []string{"a", "b"},
 	}
-	
+
 	change := &diff.Change{
 		Action:          diff.ActionUpdated,
 		IdentifiedBy:    "_id",
 		IdentifierValue: "12345",
 		Data:            originalData,
 	}
-	
+
 	_, err := restorer.Build(change)
 	if err != nil {
 		t.Errorf("Build() unexpected error: %v", err)
 		return
 	}
-	
+
 	// Check that original data wasn't modified
 	if originalData["name"] != "original" {
 		t.Error("Original data was modified during build")
 	}
-	
+
 	if _, exists := originalData["_id"]; !exists {
 		t.Error("Original data should still contain _id field")
 	}
@@ -474,7 +474,7 @@ func TestMongoShellRestorer_Build_DataCloning(t *testing.T) {
 
 func TestMongoShellRestorer_Build_ComplexData(t *testing.T) {
 	restorer := NewMongoShellRestorer("complex")
-	
+
 	change := &diff.Change{
 		Action:          diff.ActionAdded,
 		IdentifiedBy:    "_id",
@@ -487,18 +487,18 @@ func TestMongoShellRestorer_Build_ComplexData(t *testing.T) {
 			"bool":   false,
 		},
 	}
-	
+
 	result, err := restorer.Build(change)
 	if err != nil {
 		t.Errorf("Build() unexpected error: %v", err)
 		return
 	}
-	
+
 	// Should contain the basic structure
 	if !strings.Contains(result, "db.getCollection(\"complex\").insertOne(") {
 		t.Errorf("Build() result should contain insertOne command")
 	}
-	
+
 	// Should be valid shell command syntax
 	if !strings.HasSuffix(result, ");") {
 		t.Errorf("Build() result should end with ');'")
@@ -507,20 +507,20 @@ func TestMongoShellRestorer_Build_ComplexData(t *testing.T) {
 
 func TestMongoShellRestorer_Build_EmptyData(t *testing.T) {
 	restorer := NewMongoShellRestorer("test")
-	
+
 	change := &diff.Change{
 		Action:          diff.ActionAdded,
 		IdentifiedBy:    "_id",
 		IdentifierValue: "12345",
 		Data:            bson.M{},
 	}
-	
+
 	result, err := restorer.Build(change)
 	if err != nil {
 		t.Errorf("Build() unexpected error: %v", err)
 		return
 	}
-	
+
 	if !strings.Contains(result, "insertOne(") {
 		t.Error("Build() should generate insertOne command for empty data")
 	}

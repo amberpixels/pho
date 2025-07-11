@@ -119,4 +119,3 @@ func (r *Renderer) Format(ctx context.Context, cursor Cursor, out io.Writer) err
 
 	return nil
 }
-

@@ -29,7 +29,7 @@ func (c *mockCursor) Decode(v any) error {
 	if c.current < 0 || c.current >= len(c.docs) {
 		return nil
 	}
-	
+
 	// Simple decode implementation for testing
 	if target, ok := v.(*bson.M); ok {
 		*target = c.docs[c.current]
@@ -72,16 +72,16 @@ func TestNewRenderer(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			renderer := NewRenderer(tt.options...)
-			
+
 			if renderer == nil {
 				t.Fatal("NewRenderer() returned nil")
 			}
-			
+
 			config := renderer.GetConfiguration()
 			if config == nil {
 				t.Fatal("GetConfiguration() returned nil")
 			}
-			
+
 			if config.ShowLineNumbers != tt.expected.ShowLineNumbers {
 				t.Errorf("ShowLineNumbers = %v, want %v", config.ShowLineNumbers, tt.expected.ShowLineNumbers)
 			}
@@ -95,11 +95,11 @@ func TestNewRenderer(t *testing.T) {
 func TestRenderer_GetConfiguration(t *testing.T) {
 	renderer := NewRenderer(WithShowLineNumbers(true))
 	config := renderer.GetConfiguration()
-	
+
 	if config == nil {
 		t.Fatal("GetConfiguration() returned nil")
 	}
-	
+
 	if !config.ShowLineNumbers {
 		t.Error("Expected ShowLineNumbers to be true")
 	}
@@ -107,11 +107,11 @@ func TestRenderer_GetConfiguration(t *testing.T) {
 
 func TestRenderer_FormatLineNumber(t *testing.T) {
 	tests := []struct {
-		name         string
-		options      []Option
-		lineNumber   int
-		expected     string
-		shouldBeNil  bool
+		name        string
+		options     []Option
+		lineNumber  int
+		expected    string
+		shouldBeNil bool
 	}{
 		{
 			name:        "show line numbers enabled",
@@ -158,7 +158,7 @@ func TestRenderer_FormatLineNumber(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			renderer := NewRenderer(tt.options...)
 			result := renderer.FormatLineNumber(tt.lineNumber)
-			
+
 			if tt.shouldBeNil {
 				if result != nil {
 					t.Errorf("FormatLineNumber() = %v, want nil", string(result))
@@ -239,18 +239,18 @@ func TestRenderer_FormatResult(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			renderer := NewRenderer(tt.options...)
 			result, err := renderer.FormatResult(tt.input)
-			
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("FormatResult() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			
+
 			if !tt.wantErr {
 				if len(result) == 0 {
 					t.Error("FormatResult() returned empty result")
 					return
 				}
-				
+
 				if tt.wantContain != "" && !strings.Contains(string(result), tt.wantContain) {
 					t.Errorf("FormatResult() = %v, want to contain %v", string(result), tt.wantContain)
 				}
@@ -265,18 +265,18 @@ func TestRenderer_FormatResult_IgnoreFailures(t *testing.T) {
 		WithExtJSONMode(ExtJSONModes.Shell),
 		WithIgnoreFailures(true),
 	)
-	
+
 	result, err := renderer.FormatResult(bson.M{"name": "test"})
-	
+
 	// Should not return error and should have result since Shell mode now works
 	if err != nil {
 		t.Errorf("FormatResult() with Shell mode should not return error, got %v", err)
 	}
-	
+
 	if result == nil {
 		t.Error("FormatResult() with Shell mode should return result, got nil")
 	}
-	
+
 	// Verify it contains the expected field
 	if !strings.Contains(string(result), "name") {
 		t.Errorf("FormatResult() result should contain 'name', got %v", string(result))
@@ -285,11 +285,11 @@ func TestRenderer_FormatResult_IgnoreFailures(t *testing.T) {
 
 func TestRenderer_Format(t *testing.T) {
 	tests := []struct {
-		name     string
-		options  []Option
-		docs     []bson.M
-		wantErr  bool
-		checkFn  func(string) bool
+		name    string
+		options []Option
+		docs    []bson.M
+		wantErr bool
+		checkFn func(string) bool
 	}{
 		{
 			name:    "empty cursor",
@@ -344,15 +344,15 @@ func TestRenderer_Format(t *testing.T) {
 			renderer := NewRenderer(tt.options...)
 			cursor := newMockCursor(tt.docs)
 			ctx := context.Background()
-			
+
 			var buf bytes.Buffer
 			err := renderer.Format(ctx, cursor, &buf)
-			
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Format() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			
+
 			if !tt.wantErr && tt.checkFn != nil {
 				output := buf.String()
 				if !tt.checkFn(output) {
@@ -379,10 +379,10 @@ func (c *errorCursor) Decode(v any) error {
 
 func TestRenderer_Format_DecodeError(t *testing.T) {
 	tests := []struct {
-		name           string
-		options        []Option
-		expectError    bool
-		errorContains  string
+		name          string
+		options       []Option
+		expectError   bool
+		errorContains string
 	}{
 		{
 			name:          "decode error without ignore failures",
@@ -402,15 +402,15 @@ func TestRenderer_Format_DecodeError(t *testing.T) {
 			renderer := NewRenderer(tt.options...)
 			cursor := &errorCursor{}
 			ctx := context.Background()
-			
+
 			var buf bytes.Buffer
 			err := renderer.Format(ctx, cursor, &buf)
-			
+
 			if (err != nil) != tt.expectError {
 				t.Errorf("Format() error = %v, expectError %v", err, tt.expectError)
 				return
 			}
-			
+
 			if tt.expectError && tt.errorContains != "" {
 				if !strings.Contains(err.Error(), tt.errorContains) {
 					t.Errorf("Format() error = %v, want error containing %v", err, tt.errorContains)
@@ -429,10 +429,10 @@ func (w *writeErrorWriter) Write(p []byte) (n int, err error) {
 
 func TestRenderer_Format_WriteError(t *testing.T) {
 	tests := []struct {
-		name           string
-		options        []Option
-		expectError    bool
-		errorContains  string
+		name          string
+		options       []Option
+		expectError   bool
+		errorContains string
 	}{
 		{
 			name:          "write error without ignore failures",
@@ -452,15 +452,15 @@ func TestRenderer_Format_WriteError(t *testing.T) {
 			renderer := NewRenderer(tt.options...)
 			cursor := newMockCursor([]bson.M{{"name": "test"}})
 			ctx := context.Background()
-			
+
 			writer := &writeErrorWriter{}
 			err := renderer.Format(ctx, cursor, writer)
-			
+
 			if (err != nil) != tt.expectError {
 				t.Errorf("Format() error = %v, expectError %v", err, tt.expectError)
 				return
 			}
-			
+
 			if tt.expectError && tt.errorContains != "" {
 				if !strings.Contains(err.Error(), tt.errorContains) {
 					t.Errorf("Format() error = %v, want error containing %v", err, tt.errorContains)
@@ -473,14 +473,14 @@ func TestRenderer_Format_WriteError(t *testing.T) {
 func TestRenderer_Format_ContextCancellation(t *testing.T) {
 	renderer := NewRenderer(WithExtJSONMode(ExtJSONModes.Relaxed))
 	cursor := newMockCursor([]bson.M{{"name": "test"}})
-	
+
 	// Create a cancelled context
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	
+
 	var buf bytes.Buffer
 	err := renderer.Format(ctx, cursor, &buf)
-	
+
 	// The context cancellation should be handled by the cursor's Next method
 	// Our mock cursor doesn't check context, so this test mainly ensures the method
 	// can handle cancelled contexts without panicking
@@ -495,7 +495,7 @@ func TestExtJSONMode_TypeSafety(t *testing.T) {
 	if string(mode) != "custom" {
 		t.Errorf("ExtJSONMode should be string-based, got %T", mode)
 	}
-	
+
 	// Test assignment from constants
 	mode = ExtJSONModes.Canonical
 	if mode != "canonical" {
@@ -513,7 +513,7 @@ func TestRenderer_comprehensive(t *testing.T) {
 		WithMinimizedJSON(false),
 		WithIgnoreFailures(false),
 	)
-	
+
 	// Verify configuration
 	config := renderer.GetConfiguration()
 	if !config.ShowLineNumbers {
@@ -525,19 +525,19 @@ func TestRenderer_comprehensive(t *testing.T) {
 	if config.ExtJSONMode != ExtJSONModes.Canonical {
 		t.Errorf("Expected ExtJSONMode to be %v, got %v", ExtJSONModes.Canonical, config.ExtJSONMode)
 	}
-	
+
 	// Test line number formatting (should be nil due to AsValidJSON)
 	lineNumbers := renderer.FormatLineNumber(1)
 	if lineNumbers != nil {
 		t.Error("Expected line numbers to be disabled when AsValidJSON is true")
 	}
-	
+
 	// Test result formatting
 	result, err := renderer.FormatResult(bson.M{"test": "value"})
 	if err != nil {
 		t.Errorf("FormatResult() unexpected error: %v", err)
 	}
-	
+
 	if !strings.Contains(string(result), ",") {
 		t.Error("Expected comma for valid JSON format")
 	}
