@@ -4,6 +4,8 @@ import (
 	"pho/internal/hashing"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -47,37 +49,21 @@ func TestNewChange(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			change := NewChange(tt.identifiedBy, tt.identifierValue, tt.action, tt.data...)
 
-			if change == nil {
-				t.Fatal("NewChange() returned nil")
-			}
-
-			if change.IdentifiedBy != tt.identifiedBy {
-				t.Errorf("IdentifiedBy = %v, want %v", change.IdentifiedBy, tt.identifiedBy)
-			}
-
-			if change.IdentifierValue != tt.identifierValue {
-				t.Errorf("IdentifierValue = %v, want %v", change.IdentifierValue, tt.identifierValue)
-			}
-
-			if change.Action != tt.action {
-				t.Errorf("Action = %v, want %v", change.Action, tt.action)
-			}
+			assert.NotNil(t, change)
+			assert.Equal(t, tt.identifiedBy, change.IdentifiedBy)
+			assert.Equal(t, tt.identifierValue, change.IdentifierValue)
+			assert.Equal(t, tt.action, change.Action)
 
 			if tt.expectData {
-				if change.Data == nil {
-					t.Error("Expected data, got nil")
-				} else if len(tt.data) > 0 {
+				assert.NotNil(t, change.Data)
+				if len(tt.data) > 0 {
 					// Check first element
 					for key, value := range tt.data[0] {
-						if change.Data[key] != value {
-							t.Errorf("Data[%s] = %v, want %v", key, change.Data[key], value)
-						}
+						assert.Equal(t, value, change.Data[key])
 					}
 				}
 			} else {
-				if change.Data != nil {
-					t.Error("Expected no data, got data")
-				}
+				assert.Nil(t, change.Data)
 			}
 		})
 	}
@@ -116,9 +102,7 @@ func TestChange_IsEffective(t *testing.T) {
 			change := &Change{Action: tt.action}
 			result := change.IsEffective()
 
-			if result != tt.expected {
-				t.Errorf("IsEffective() = %v, want %v", result, tt.expected)
-			}
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -131,9 +115,7 @@ func TestChanges_Len(t *testing.T) {
 	}
 
 	expected := 3
-	if len := changes.Len(); len != expected {
-		t.Errorf("Len() = %v, want %v", len, expected)
-	}
+	assert.Equal(t, expected, changes.Len())
 }
 
 func TestChanges_Filter(t *testing.T) {
@@ -149,14 +131,10 @@ func TestChanges_Filter(t *testing.T) {
 		return c.Action == ActionsDict.Added || c.Action == ActionsDict.Updated
 	})
 
-	if len(filtered) != 2 {
-		t.Errorf("Filter() returned %d changes, want 2", len(filtered))
-	}
+	assert.Len(t, filtered, 2)
 
 	for _, change := range filtered {
-		if change.Action != ActionsDict.Added && change.Action != ActionsDict.Updated {
-			t.Errorf("Filter() returned unexpected action: %v", change.Action)
-		}
+		assert.True(t, change.Action == ActionsDict.Added || change.Action == ActionsDict.Updated)
 	}
 }
 
@@ -169,19 +147,13 @@ func TestChanges_FilterByAction(t *testing.T) {
 	}
 
 	addedChanges := changes.FilterByAction(ActionsDict.Added)
-	if len(addedChanges) != 2 {
-		t.Errorf("FilterByAction(Added) returned %d changes, want 2", len(addedChanges))
-	}
+	assert.Len(t, addedChanges, 2)
 
 	updatedChanges := changes.FilterByAction(ActionsDict.Updated)
-	if len(updatedChanges) != 1 {
-		t.Errorf("FilterByAction(Updated) returned %d changes, want 1", len(updatedChanges))
-	}
+	assert.Len(t, updatedChanges, 1)
 
 	deletedChanges := changes.FilterByAction(ActionsDict.Deleted)
-	if len(deletedChanges) != 1 {
-		t.Errorf("FilterByAction(Deleted) returned %d changes, want 1", len(deletedChanges))
-	}
+	assert.Len(t, deletedChanges, 1)
 }
 
 func TestChanges_EffectiveOnes(t *testing.T) {
@@ -195,14 +167,10 @@ func TestChanges_EffectiveOnes(t *testing.T) {
 
 	effective := changes.EffectiveOnes()
 
-	if len(effective) != 3 {
-		t.Errorf("EffectiveOnes() returned %d changes, want 3", len(effective))
-	}
+	assert.Len(t, effective, 3)
 
 	for _, change := range effective {
-		if change.Action == ActionsDict.Noop {
-			t.Error("EffectiveOnes() should not include Noop actions")
-		}
+		assert.NotEqual(t, ActionsDict.Noop, change.Action)
 	}
 }
 
@@ -233,22 +201,15 @@ func TestCalculateChanges(t *testing.T) {
 	destination := []bson.M{doc1, doc2, doc3, doc4}
 
 	changes, err := CalculateChanges(source, destination)
-	if err != nil {
-		t.Fatalf("CalculateChanges() error = %v", err)
-	}
-
-	if len(changes) != 5 { // 4 destination docs + 1 deleted
-		t.Errorf("CalculateChanges() returned %d changes, want 5", len(changes))
-	}
+	require.NoError(t, err)
+	assert.Len(t, changes, 5) // 4 destination docs + 1 deleted
 
 	// Analyze changes
 	effective := changes.EffectiveOnes()
 
 	// Should have: 1 added (doc4), 1 updated (doc3), 1 deleted (doc5)
 	expectedEffective := 3
-	if len(effective) != expectedEffective {
-		t.Errorf("Expected %d effective changes, got %d", expectedEffective, len(effective))
-	}
+	assert.Len(t, effective, expectedEffective)
 
 	// Count by action
 	added := changes.FilterByAction(ActionsDict.Added)
@@ -256,21 +217,10 @@ func TestCalculateChanges(t *testing.T) {
 	deleted := changes.FilterByAction(ActionsDict.Deleted)
 	noop := changes.FilterByAction(ActionsDict.Noop)
 
-	if len(added) != 1 {
-		t.Errorf("Expected 1 added change, got %d", len(added))
-	}
-
-	if len(updated) != 1 {
-		t.Errorf("Expected 1 updated change, got %d", len(updated))
-	}
-
-	if len(deleted) != 1 {
-		t.Errorf("Expected 1 deleted change, got %d", len(deleted))
-	}
-
-	if len(noop) != 2 {
-		t.Errorf("Expected 2 noop changes, got %d", len(noop))
-	}
+	assert.Len(t, added, 1)
+	assert.Len(t, updated, 1)
+	assert.Len(t, deleted, 1)
+	assert.Len(t, noop, 2)
 }
 
 func TestCalculateChanges_EmptySource(t *testing.T) {
@@ -282,18 +232,11 @@ func TestCalculateChanges_EmptySource(t *testing.T) {
 	}
 
 	changes, err := CalculateChanges(source, destination)
-	if err != nil {
-		t.Fatalf("CalculateChanges() error = %v", err)
-	}
-
-	if len(changes) != 2 {
-		t.Errorf("Expected 2 changes, got %d", len(changes))
-	}
+	require.NoError(t, err)
+	assert.Len(t, changes, 2)
 
 	for _, change := range changes {
-		if change.Action != ActionsDict.Added {
-			t.Errorf("All changes should be Added, got %v", change.Action)
-		}
+		assert.Equal(t, ActionsDict.Added, change.Action)
 	}
 }
 
@@ -311,18 +254,11 @@ func TestCalculateChanges_EmptyDestination(t *testing.T) {
 	destination := []bson.M{}
 
 	changes, err := CalculateChanges(source, destination)
-	if err != nil {
-		t.Fatalf("CalculateChanges() error = %v", err)
-	}
-
-	if len(changes) != 2 {
-		t.Errorf("Expected 2 changes, got %d", len(changes))
-	}
+	require.NoError(t, err)
+	assert.Len(t, changes, 2)
 
 	for _, change := range changes {
-		if change.Action != ActionsDict.Deleted {
-			t.Errorf("All changes should be Deleted, got %v", change.Action)
-		}
+		assert.Equal(t, ActionsDict.Deleted, change.Action)
 	}
 }
 
@@ -334,9 +270,7 @@ func TestCalculateChanges_InvalidDocument(t *testing.T) {
 	}
 
 	_, err := CalculateChanges(source, destination)
-	if err == nil {
-		t.Error("CalculateChanges() should return error for document without _id")
-	}
+	assert.Error(t, err)
 }
 
 func TestCalculateChanges_ObjectIDSupport(t *testing.T) {
@@ -355,21 +289,11 @@ func TestCalculateChanges_ObjectIDSupport(t *testing.T) {
 	destination := []bson.M{doc1, doc2}
 
 	changes, err := CalculateChanges(source, destination)
-	if err != nil {
-		t.Fatalf("CalculateChanges() error = %v", err)
-	}
-
-	if len(changes) != 2 {
-		t.Errorf("Expected 2 changes, got %d", len(changes))
-	}
+	require.NoError(t, err)
+	assert.Len(t, changes, 2)
 
 	// One should be noop, one should be added
 	effective := changes.EffectiveOnes()
-	if len(effective) != 1 {
-		t.Errorf("Expected 1 effective change, got %d", len(effective))
-	}
-
-	if effective[0].Action != ActionsDict.Added {
-		t.Errorf("Expected Added action, got %v", effective[0].Action)
-	}
+	assert.Len(t, effective, 1)
+	assert.Equal(t, ActionsDict.Added, effective[0].Action)
 }

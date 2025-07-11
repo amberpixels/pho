@@ -3,6 +3,7 @@ package pho
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"pho/internal/render"
 )
 
@@ -39,9 +40,7 @@ func TestWithURI(t *testing.T) {
 			option := WithURI(tt.uri)
 			option(app)
 
-			if app.uri != tt.uri {
-				t.Errorf("WithURI() set uri = %v, want %v", app.uri, tt.uri)
-			}
+			assert.Equal(t, tt.uri, app.uri)
 		})
 	}
 }
@@ -83,9 +82,7 @@ func TestWithDatabase(t *testing.T) {
 			option := WithDatabase(tt.dbName)
 			option(app)
 
-			if app.dbName != tt.dbName {
-				t.Errorf("WithDatabase() set dbName = %v, want %v", app.dbName, tt.dbName)
-			}
+			assert.Equal(t, tt.dbName, app.dbName)
 		})
 	}
 }
@@ -127,9 +124,7 @@ func TestWithCollection(t *testing.T) {
 			option := WithCollection(tt.collectionName)
 			option(app)
 
-			if app.collectionName != tt.collectionName {
-				t.Errorf("WithCollection() set collectionName = %v, want %v", app.collectionName, tt.collectionName)
-			}
+			assert.Equal(t, tt.collectionName, app.collectionName)
 		})
 	}
 }
@@ -155,9 +150,7 @@ func TestWithRenderer(t *testing.T) {
 			option := WithRenderer(tt.renderer)
 			option(app)
 
-			if app.render != tt.renderer {
-				t.Errorf("WithRenderer() set render = %v, want %v", app.render, tt.renderer)
-			}
+			assert.Equal(t, tt.renderer, app.render)
 		})
 	}
 }
@@ -173,14 +166,10 @@ func TestWithRenderer_configured(t *testing.T) {
 	option := WithRenderer(renderer)
 	option(app)
 
-	if app.render != renderer {
-		t.Errorf("WithRenderer() set render = %v, want %v", app.render, renderer)
-	}
+	assert.Equal(t, renderer, app.render)
 
 	// Verify the renderer configuration is preserved
-	if !app.render.GetConfiguration().AsValidJSON {
-		t.Errorf("WithRenderer() renderer configuration not preserved")
-	}
+	assert.True(t, app.render.GetConfiguration().AsValidJSON)
 }
 
 func TestOptions_chainable(t *testing.T) {
@@ -194,18 +183,10 @@ func TestOptions_chainable(t *testing.T) {
 		WithRenderer(renderer),
 	)
 
-	if app.uri != "mongodb://localhost:27017" {
-		t.Errorf("Chained options: uri = %v, want mongodb://localhost:27017", app.uri)
-	}
-	if app.dbName != "testdb" {
-		t.Errorf("Chained options: dbName = %v, want testdb", app.dbName)
-	}
-	if app.collectionName != "testcoll" {
-		t.Errorf("Chained options: collectionName = %v, want testcoll", app.collectionName)
-	}
-	if app.render != renderer {
-		t.Errorf("Chained options: render = %v, want %v", app.render, renderer)
-	}
+	assert.Equal(t, "mongodb://localhost:27017", app.uri)
+	assert.Equal(t, "testdb", app.dbName)
+	assert.Equal(t, "testcoll", app.collectionName)
+	assert.Equal(t, renderer, app.render)
 }
 
 func TestOptions_override(t *testing.T) {
@@ -219,15 +200,9 @@ func TestOptions_override(t *testing.T) {
 		WithCollection("secondcoll"),
 	)
 
-	if app.uri != "mongodb://second:27017" {
-		t.Errorf("Option override: uri = %v, want mongodb://second:27017", app.uri)
-	}
-	if app.dbName != "seconddb" {
-		t.Errorf("Option override: dbName = %v, want seconddb", app.dbName)
-	}
-	if app.collectionName != "secondcoll" {
-		t.Errorf("Option override: collectionName = %v, want secondcoll", app.collectionName)
-	}
+	assert.Equal(t, "mongodb://second:27017", app.uri)
+	assert.Equal(t, "seconddb", app.dbName)
+	assert.Equal(t, "secondcoll", app.collectionName)
 }
 
 func TestOptions_emptyApp(t *testing.T) {
@@ -239,18 +214,10 @@ func TestOptions_emptyApp(t *testing.T) {
 	WithCollection("testcoll")(&app)
 	WithRenderer(render.NewRenderer())(&app)
 
-	if app.uri != "test://uri" {
-		t.Errorf("Options on empty app: uri = %v, want test://uri", app.uri)
-	}
-	if app.dbName != "testdb" {
-		t.Errorf("Options on empty app: dbName = %v, want testdb", app.dbName)
-	}
-	if app.collectionName != "testcoll" {
-		t.Errorf("Options on empty app: collectionName = %v, want testcoll", app.collectionName)
-	}
-	if app.render == nil {
-		t.Errorf("Options on empty app: render should not be nil")
-	}
+	assert.Equal(t, "test://uri", app.uri)
+	assert.Equal(t, "testdb", app.dbName)
+	assert.Equal(t, "testcoll", app.collectionName)
+	assert.NotNil(t, app.render)
 }
 
 func TestOptions_partialApplication(t *testing.T) {
@@ -261,18 +228,10 @@ func TestOptions_partialApplication(t *testing.T) {
 		// Note: no collection or renderer
 	)
 
-	if app.uri != "mongodb://localhost:27017" {
-		t.Errorf("Partial options: uri = %v, want mongodb://localhost:27017", app.uri)
-	}
-	if app.dbName != "testdb" {
-		t.Errorf("Partial options: dbName = %v, want testdb", app.dbName)
-	}
-	if app.collectionName != "" {
-		t.Errorf("Partial options: collectionName = %v, want empty", app.collectionName)
-	}
-	if app.render != nil {
-		t.Errorf("Partial options: render = %v, want nil", app.render)
-	}
+	assert.Equal(t, "mongodb://localhost:27017", app.uri)
+	assert.Equal(t, "testdb", app.dbName)
+	assert.Equal(t, "", app.collectionName)
+	assert.Nil(t, app.render)
 }
 
 func TestOption_typeSignature(t *testing.T) {
@@ -282,9 +241,7 @@ func TestOption_typeSignature(t *testing.T) {
 	app := &App{}
 	option(app)
 
-	if app.uri != "test" {
-		t.Errorf("Option type signature: uri = %v, want test", app.uri)
-	}
+	assert.Equal(t, "test", app.uri)
 }
 
 func TestOptions_orderIndependence(t *testing.T) {
@@ -301,13 +258,7 @@ func TestOptions_orderIndependence(t *testing.T) {
 		WithURI("mongodb://localhost:27017"),
 	)
 
-	if app1.uri != app2.uri {
-		t.Errorf("Option order: app1.uri = %v, app2.uri = %v", app1.uri, app2.uri)
-	}
-	if app1.dbName != app2.dbName {
-		t.Errorf("Option order: app1.dbName = %v, app2.dbName = %v", app1.dbName, app2.dbName)
-	}
-	if app1.collectionName != app2.collectionName {
-		t.Errorf("Option order: app1.collectionName = %v, app2.collectionName = %v", app1.collectionName, app2.collectionName)
-	}
+	assert.Equal(t, app2.uri, app1.uri)
+	assert.Equal(t, app2.dbName, app1.dbName)
+	assert.Equal(t, app2.collectionName, app1.collectionName)
 }

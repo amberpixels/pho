@@ -3,6 +3,8 @@ package hashing
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -39,7 +41,7 @@ func TestNewIdentifierValue(t *testing.T) {
 			defer func() {
 				if r := recover(); r != nil {
 					if !tt.wantErr {
-						t.Errorf("NewIdentifierValue() unexpected panic: %v", r)
+						assert.Fail(t, "NewIdentifierValue() unexpected panic", r)
 					}
 				}
 			}()
@@ -47,18 +49,12 @@ func TestNewIdentifierValue(t *testing.T) {
 			id := NewIdentifierValue(tt.value)
 
 			if tt.wantErr {
-				t.Errorf("NewIdentifierValue() expected panic, got success")
+				assert.Fail(t, "NewIdentifierValue() expected panic, got success")
 				return
 			}
 
-			if id == nil {
-				t.Errorf("NewIdentifierValue() returned nil")
-				return
-			}
-
-			if id.Value != tt.value {
-				t.Errorf("NewIdentifierValue() value mismatch: got %v, want %v", id.Value, tt.value)
-			}
+			assert.NotNil(t, id)
+			assert.Equal(t, tt.value, id.Value)
 		})
 	}
 }
@@ -86,9 +82,7 @@ func TestIdentifierValue_String(t *testing.T) {
 			id := &IdentifierValue{Value: tt.value}
 			result := id.String()
 
-			if result != tt.expected {
-				t.Errorf("String() = %v, want %v", result, tt.expected)
-			}
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -143,39 +137,26 @@ func TestParseIdentifierValue(t *testing.T) {
 			result, err := ParseIdentifierValue(tt.input)
 
 			if tt.wantErr {
-				if err == nil {
-					t.Errorf("ParseIdentifierValue() expected error, got nil")
-				}
+				assert.Error(t, err)
 				return
 			}
 
-			if err != nil {
-				t.Errorf("ParseIdentifierValue() unexpected error: %v", err)
-				return
-			}
-
-			if result == nil {
-				t.Errorf("ParseIdentifierValue() returned nil result")
-				return
-			}
+			require.NoError(t, err)
+			assert.NotNil(t, result)
 
 			// Compare values based on type
 			switch expectedVal := tt.wantValue.(type) {
 			case primitive.ObjectID:
 				if oid, ok := result.Value.(primitive.ObjectID); ok {
-					if oid != expectedVal {
-						t.Errorf("ParseIdentifierValue() ObjectID mismatch: got %v, want %v", oid, expectedVal)
-					}
+					assert.Equal(t, expectedVal, oid)
 				} else {
-					t.Errorf("ParseIdentifierValue() expected ObjectID, got %T", result.Value)
+					assert.IsType(t, primitive.ObjectID{}, result.Value)
 				}
 			case string:
 				if str, ok := result.Value.(string); ok {
-					if str != expectedVal {
-						t.Errorf("ParseIdentifierValue() string mismatch: got %v, want %v", str, expectedVal)
-					}
+					assert.Equal(t, expectedVal, str)
 				} else {
-					t.Errorf("ParseIdentifierValue() expected string, got %T", result.Value)
+					assert.IsType(t, "", result.Value)
 				}
 			}
 		})
@@ -207,26 +188,20 @@ func TestIdentifierValue_RoundTrip(t *testing.T) {
 
 			// Parse back
 			parsed, err := ParseIdentifierValue(str)
-			if err != nil {
-				t.Fatalf("ParseIdentifierValue() failed: %v", err)
-			}
+			require.NoError(t, err)
 
 			// Compare values
 			switch originalVal := tt.value.(type) {
 			case primitive.ObjectID:
 				if parsedOID, ok := parsed.Value.(primitive.ObjectID); ok {
-					if parsedOID != originalVal {
-						t.Errorf("Round trip failed for ObjectID: got %v, want %v", parsedOID, originalVal)
-					}
+					assert.Equal(t, originalVal, parsedOID)
 				} else {
-					t.Errorf("Round trip failed: expected ObjectID, got %T", parsed.Value)
+					assert.IsType(t, primitive.ObjectID{}, parsed.Value)
 				}
 			case string:
 				// Note: string values get converted to ObjectID hex if they're valid hex
 				// So we compare the string representation instead
-				if parsed.String() != original.String() {
-					t.Errorf("Round trip failed for string: got %v, want %v", parsed.String(), original.String())
-				}
+				assert.Equal(t, original.String(), parsed.String())
 			}
 		})
 	}

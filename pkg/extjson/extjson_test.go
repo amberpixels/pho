@@ -4,6 +4,8 @@ import (
 	"pho/pkg/extjson"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
@@ -21,19 +23,14 @@ func TestMarshaller_Marshal_OnSingleObject(t *testing.T) {
 	var stable []byte
 	for i := 0; i < 10; i++ {
 		got, err := mrshlr.Marshal(testData)
-		if err != nil {
-			t.Errorf("marshal expects to succeed but failed: %s:", err)
-			return
-		}
+		require.NoError(t, err, "marshal expects to succeed but failed")
 
 		if len(stable) == 0 {
 			stable = got
 			continue
 		}
 
-		if string(stable) != string(got) {
-			t.Errorf("Marshalled result is not stable. %s != %s", string(stable), string(got))
-		}
+		assert.Equal(t, string(stable), string(got), "Marshalled result is not stable")
 	}
 }
 
@@ -49,8 +46,5 @@ func TestMarshaller_Marshal_OnArray(t *testing.T) {
 	}
 
 	_, err := extjson.NewCanonicalMarshaller().Marshal(testData)
-	if err == nil {
-		t.Errorf("marshal expects to fail yet as not supported")
-		return
-	}
+	assert.Error(t, err, "marshal expects to fail yet as not supported")
 }

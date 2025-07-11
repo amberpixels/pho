@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
@@ -76,13 +77,11 @@ func TestCloneBsonM(t *testing.T) {
 			result := cloneBsonM(tt.input)
 
 			// Check that values are equal
-			if !reflect.DeepEqual(result, tt.expected) {
-				t.Errorf("cloneBsonM() = %v, want %v", result, tt.expected)
-			}
+			assert.True(t, reflect.DeepEqual(result, tt.expected))
 
 			// Check that it's a different object (not same reference)
-			if tt.input != nil && &result == &tt.input {
-				t.Error("cloneBsonM() should return a different object")
+			if tt.input != nil {
+				assert.NotSame(t, &tt.input, &result)
 			}
 		})
 	}
@@ -105,22 +104,13 @@ func TestCloneBsonM_MutationSafety(t *testing.T) {
 	clone["newField"] = "added"
 
 	// Original should remain unchanged
-	if original["name"] != "original" {
-		t.Errorf("Original document was modified: name = %v, want 'original'", original["name"])
-	}
-
-	if _, exists := original["newField"]; exists {
-		t.Error("Original document should not have newField")
-	}
+	assert.Equal(t, "original", original["name"])
+	_, exists := original["newField"]
+	assert.False(t, exists, "Original document should not have newField")
 
 	// Clone should have the modifications
-	if clone["name"] != "modified" {
-		t.Errorf("Clone was not modified: name = %v, want 'modified'", clone["name"])
-	}
-
-	if clone["newField"] != "added" {
-		t.Errorf("Clone should have newField = 'added', got %v", clone["newField"])
-	}
+	assert.Equal(t, "modified", clone["name"])
+	assert.Equal(t, "added", clone["newField"])
 }
 
 func TestCloneBsonM_NestedMutationBehavior(t *testing.T) {
@@ -141,7 +131,7 @@ func TestCloneBsonM_NestedMutationBehavior(t *testing.T) {
 
 	// This demonstrates shallow copy behavior - nested objects are shared
 	if originalNested, ok := original["nested"].(bson.M); ok {
-		if originalNested["inner"] != "modified" {
+		if originalNested["inner"] != "modified" { //nolint: staticcheck
 			// This behavior depends on maps.Copy implementation
 			// If it changes in the future, this test documents the current behavior
 		}
@@ -149,9 +139,8 @@ func TestCloneBsonM_NestedMutationBehavior(t *testing.T) {
 
 	// But top-level additions don't affect the original
 	clone["topLevel"] = "new"
-	if _, exists := original["topLevel"]; exists {
-		t.Error("Top-level addition to clone should not affect original")
-	}
+	_, exists := original["topLevel"]
+	assert.False(t, exists, "Top-level addition to clone should not affect original")
 }
 
 func TestCloneBsonM_EmptyAndNilHandling(t *testing.T) {
@@ -159,27 +148,18 @@ func TestCloneBsonM_EmptyAndNilHandling(t *testing.T) {
 	empty := bson.M{}
 	clonedEmpty := cloneBsonM(empty)
 
-	if len(clonedEmpty) != 0 {
-		t.Errorf("Cloned empty document should be empty, got length %d", len(clonedEmpty))
-	}
+	assert.Len(t, clonedEmpty, 0)
 
 	// Add to clone, shouldn't affect original
 	clonedEmpty["test"] = "value"
-	if len(empty) != 0 {
-		t.Error("Original empty document should remain empty")
-	}
+	assert.Len(t, empty, 0)
 
 	// Test nil input
 	var nilDoc bson.M
 	clonedNil := cloneBsonM(nilDoc)
 
-	if clonedNil == nil {
-		t.Error("cloneBsonM(nil) should return non-nil empty map")
-	}
-
-	if len(clonedNil) != 0 {
-		t.Errorf("cloneBsonM(nil) should return empty map, got length %d", len(clonedNil))
-	}
+	assert.NotNil(t, clonedNil)
+	assert.Len(t, clonedNil, 0)
 }
 
 func TestCloneBsonM_TypePreservation(t *testing.T) {
@@ -199,15 +179,10 @@ func TestCloneBsonM_TypePreservation(t *testing.T) {
 
 	for key, originalValue := range original {
 		cloneValue, exists := clone[key]
-		if !exists {
-			t.Errorf("Clone missing key: %s", key)
-			continue
-		}
-
-		if !reflect.DeepEqual(originalValue, cloneValue) {
-			t.Errorf("Type not preserved for key %s: original = %v (%T), clone = %v (%T)",
-				key, originalValue, originalValue, cloneValue, cloneValue)
-		}
+		assert.True(t, exists, "Clone missing key: %s", key)
+		assert.True(t, reflect.DeepEqual(originalValue, cloneValue),
+			"Type not preserved for key %s: original = %v (%T), clone = %v (%T)",
+			key, originalValue, originalValue, cloneValue, cloneValue)
 	}
 }
 
@@ -220,14 +195,11 @@ func TestCloneBsonM_CapacityOptimization(t *testing.T) {
 
 	clone := cloneBsonM(large)
 
-	if len(clone) != len(large) {
-		t.Errorf("Clone length = %d, want %d", len(clone), len(large))
-	}
+	assert.Len(t, clone, len(large))
 
 	// Verify all elements are present
 	for key, value := range large {
-		if cloneValue, exists := clone[key]; !exists || cloneValue != value {
-			t.Errorf("Clone missing or incorrect value for key %s", key)
-		}
+		cloneValue, exists := clone[key]
+		assert.True(t, exists && cloneValue == value, "Clone missing or incorrect value for key %s", key)
 	}
 }

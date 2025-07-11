@@ -187,11 +187,6 @@ func TestParseProjection(t *testing.T) {
 	}
 }
 
-// Helper function to check if string starts with prefix
-func startsWith(s, prefix string) bool {
-	return len(s) >= len(prefix) && s[:len(prefix)] == prefix
-}
-
 // Test edge cases for parseSort with complex scenarios
 func TestParseSort_EdgeCases(t *testing.T) {
 	tests := []struct {

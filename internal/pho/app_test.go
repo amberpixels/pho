@@ -4,11 +4,13 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
 	"pho/internal/render"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewApp(t *testing.T) {
@@ -71,18 +73,10 @@ func TestNewApp(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			app := NewApp(tt.opts...)
 
-			if app.uri != tt.expected.uri {
-				t.Errorf("NewApp() uri = %v, want %v", app.uri, tt.expected.uri)
-			}
-			if app.dbName != tt.expected.dbName {
-				t.Errorf("NewApp() dbName = %v, want %v", app.dbName, tt.expected.dbName)
-			}
-			if app.collectionName != tt.expected.collectionName {
-				t.Errorf("NewApp() collectionName = %v, want %v", app.collectionName, tt.expected.collectionName)
-			}
-			if (app.render == nil) != (tt.expected.render == nil) {
-				t.Errorf("NewApp() render = %v, want %v", app.render, tt.expected.render)
-			}
+			assert.Equal(t, tt.expected.uri, app.uri)
+			assert.Equal(t, tt.expected.dbName, app.dbName)
+			assert.Equal(t, tt.expected.collectionName, app.collectionName)
+			assert.Equal(t, tt.expected.render == nil, app.render == nil)
 		})
 	}
 }
@@ -112,9 +106,7 @@ func TestApp_getDumpFileExtension(t *testing.T) {
 			app := NewApp(WithRenderer(renderer))
 			result := app.getDumpFileExtension()
 
-			if result != tt.expectedExt {
-				t.Errorf("getDumpFileExtension() = %v, want %v", result, tt.expectedExt)
-			}
+			assert.Equal(t, tt.expectedExt, result)
 		})
 	}
 }
@@ -144,9 +136,7 @@ func TestApp_getDumpFilename(t *testing.T) {
 			app := NewApp(WithRenderer(renderer))
 			result := app.getDumpFilename()
 
-			if result != tt.expectedName {
-				t.Errorf("getDumpFilename() = %v, want %v", result, tt.expectedName)
-			}
+			assert.Equal(t, tt.expectedName, result)
 		})
 	}
 }
@@ -208,20 +198,14 @@ func TestApp_ConnectDB(t *testing.T) {
 			err := app.ConnectDB(ctx)
 
 			if tt.wantErr {
-				if err == nil {
-					t.Errorf("ConnectDB() expected error, got nil")
-					return
-				}
-				if tt.errorContains != "" && !strings.Contains(err.Error(), tt.errorContains) {
-					t.Errorf("ConnectDB() error = %v, want error containing %v", err, tt.errorContains)
+				assert.Error(t, err)
+				if tt.errorContains != "" {
+					assert.Contains(t, err.Error(), tt.errorContains)
 				}
 				return
 			}
 
-			if err != nil {
-				t.Errorf("ConnectDB() unexpected error: %v", err)
-				return
-			}
+			require.NoError(t, err)
 
 			// Clean up connection
 			if app.dbClient != nil {
@@ -253,8 +237,10 @@ func TestApp_Close(t *testing.T) {
 
 			err := app.Close(ctx)
 
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Close() error = %v, wantErr %v", err, tt.wantErr)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				require.NoError(t, err)
 			}
 		})
 	}
@@ -264,68 +250,58 @@ func TestApp_setupPhoDir(t *testing.T) {
 	// Create a temporary directory for testing
 	tempDir := t.TempDir()
 	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
+	defer func() {
+		require.NoError(t, os.Chdir(originalDir))
+	}()
 
 	// Change to temp directory for test
-	os.Chdir(tempDir)
+	require.NoError(t, os.Chdir(tempDir))
 
 	app := NewApp()
 
 	// Test creating pho directory
 	err := app.setupPhoDir()
-	if err != nil {
-		t.Errorf("setupPhoDir() unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Verify directory exists
-	if _, err := os.Stat(phoDir); os.IsNotExist(err) {
-		t.Errorf("setupPhoDir() directory not created")
-	}
+	_, err = os.Stat(phoDir)
+	assert.False(t, os.IsNotExist(err))
 
 	// Test that it doesn't error when directory already exists
 	err = app.setupPhoDir()
-	if err != nil {
-		t.Errorf("setupPhoDir() unexpected error on existing directory: %v", err)
-	}
+	require.NoError(t, err)
 }
 
 func TestApp_SetupDumpDestination(t *testing.T) {
 	// Create a temporary directory for testing
 	tempDir := t.TempDir()
 	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-
+	defer func() {
+		require.NoError(t, os.Chdir(originalDir))
+	}()
 	// Change to temp directory for test
-	os.Chdir(tempDir)
+	require.NoError(t, os.Chdir(tempDir))
 
 	renderer := render.NewRenderer(render.WithAsValidJSON(false)) // Use JSONL format
 
 	app := NewApp(WithRenderer(renderer))
 
 	file, path, err := app.SetupDumpDestination()
-	if err != nil {
-		t.Errorf("SetupDumpDestination() unexpected error: %v", err)
-		return
-	}
+	require.NoError(t, err)
 	defer file.Close()
 
 	expectedPath := filepath.Join(phoDir, "_dump.jsonl")
-	if path != expectedPath {
-		t.Errorf("SetupDumpDestination() path = %v, want %v", path, expectedPath)
-	}
+	assert.Equal(t, expectedPath, path)
 
 	// Verify file was created
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		t.Errorf("SetupDumpDestination() file not created at %v", path)
-	}
+	_, err = os.Stat(path)
+	assert.False(t, os.IsNotExist(err))
 }
 
 func TestApp_OpenEditor(t *testing.T) {
 	// Create a temporary file for testing
 	tempFile, err := os.CreateTemp("", "test_*.json")
-	if err != nil {
-		t.Fatalf("Failed to create temp file: %v", err)
-	}
+	require.NoError(t, err)
 	defer os.Remove(tempFile.Name())
 	tempFile.Close()
 
@@ -354,8 +330,10 @@ func TestApp_OpenEditor(t *testing.T) {
 			app := NewApp()
 			err := app.OpenEditor(tt.editorCmd, tt.filePath)
 
-			if (err != nil) != tt.wantErr {
-				t.Errorf("OpenEditor() error = %v, wantErr %v", err, tt.wantErr)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				require.NoError(t, err)
 			}
 		})
 	}
@@ -364,33 +342,35 @@ func TestApp_OpenEditor(t *testing.T) {
 func TestApp_readMeta_errors(t *testing.T) {
 	// Create a temporary directory for testing
 	tempDir := t.TempDir()
-	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
+	originalDir, err := os.Getwd()
+	require.NoError(t, err)
 
+	defer func() {
+		require.NoError(t, os.Chdir(originalDir))
+	}()
 	// Change to temp directory for test
-	os.Chdir(tempDir)
+	require.NoError(t, os.Chdir(tempDir))
 
 	app := NewApp()
 	ctx := context.Background()
 
 	// Test missing meta file
-	_, err := app.readMeta(ctx)
-	if err == nil {
-		t.Errorf("readMeta() expected error for missing file, got nil")
-	}
-	if !strings.Contains(err.Error(), "meta file is missing") {
-		t.Errorf("readMeta() error = %v, want error containing 'meta file is missing'", err)
-	}
+	_, err = app.readMeta(ctx)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "meta file is missing")
 }
 
 func TestApp_readDump_errors(t *testing.T) {
 	// Create a temporary directory for testing
 	tempDir := t.TempDir()
-	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
+	originalDir, err := os.Getwd()
+	require.NoError(t, err)
 
+	defer func() {
+		require.NoError(t, os.Chdir(originalDir))
+	}()
 	// Change to temp directory for test
-	os.Chdir(tempDir)
+	require.NoError(t, os.Chdir(tempDir))
 
 	renderer := render.NewRenderer(render.WithAsValidJSON(false))
 
@@ -398,13 +378,9 @@ func TestApp_readDump_errors(t *testing.T) {
 	ctx := context.Background()
 
 	// Test missing dump file
-	_, err := app.readDump(ctx)
-	if err == nil {
-		t.Errorf("readDump() expected error for missing file, got nil")
-	}
-	if !strings.Contains(err.Error(), "meta file is missing") {
-		t.Errorf("readDump() error = %v, want error containing 'meta file is missing'", err)
-	}
+	_, err = app.readDump(ctx)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "meta file is missing")
 }
 
 func TestApp_ReviewChanges_errors(t *testing.T) {
@@ -429,15 +405,13 @@ func TestApp_ReviewChanges_errors(t *testing.T) {
 
 			err := app.ReviewChanges(ctx)
 
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ReviewChanges() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-
-			if tt.wantErr && tt.errorContains != "" {
-				if !strings.Contains(err.Error(), tt.errorContains) {
-					t.Errorf("ReviewChanges() error = %v, want error containing %v", err, tt.errorContains)
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.errorContains != "" {
+					assert.Contains(t, err.Error(), tt.errorContains)
 				}
+			} else {
+				require.NoError(t, err)
 			}
 		})
 	}
@@ -477,15 +451,13 @@ func TestApp_ApplyChanges_errors(t *testing.T) {
 
 			err := app.ApplyChanges(ctx)
 
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ApplyChanges() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-
-			if tt.wantErr && tt.errorContains != "" {
-				if !strings.Contains(err.Error(), tt.errorContains) {
-					t.Errorf("ApplyChanges() error = %v, want error containing %v", err, tt.errorContains)
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.errorContains != "" {
+					assert.Contains(t, err.Error(), tt.errorContains)
 				}
+			} else {
+				require.NoError(t, err)
 			}
 		})
 	}
@@ -528,15 +500,13 @@ func TestApp_RunQuery_errors(t *testing.T) {
 
 			_, err := app.RunQuery(ctx, tt.query, 0, "", "")
 
-			if (err != nil) != tt.wantErr {
-				t.Errorf("RunQuery() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-
-			if tt.wantErr && tt.errorContains != "" {
-				if !strings.Contains(err.Error(), tt.errorContains) {
-					t.Errorf("RunQuery() error = %v, want error containing %v", err, tt.errorContains)
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.errorContains != "" {
+					assert.Contains(t, err.Error(), tt.errorContains)
 				}
+			} else {
+				require.NoError(t, err)
 			}
 		})
 	}
@@ -550,34 +520,34 @@ func TestApp_Dump_stdout(t *testing.T) {
 
 	// This test verifies the method signature and basic logic structure
 	// Real cursor testing would require MongoDB connection in integration tests
-	if app == nil {
-		t.Error("App should not be nil")
-	}
+	assert.NotNil(t, app)
 }
 
 // Test context cancellation
 func TestApp_readMeta_contextCancellation(t *testing.T) {
 	tempDir := t.TempDir()
 	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-	os.Chdir(tempDir)
+	defer func() {
+		require.NoError(t, os.Chdir(originalDir))
+	}()
+
+	require.NoError(t, os.Chdir(tempDir))
 
 	app := NewApp()
 
 	// Create .pho directory and meta file with some content
-	os.Mkdir(phoDir, 0755)
+	require.NoError(t, os.Mkdir(phoDir, 0755))
 	metaFile := filepath.Join(phoDir, phoMetaFile)
 	content := "_id::507f1f77bcf86cd799439011|2cf24dba4f21d4288094b5c9bb7dbe11c6e4c8a7d97cde8d1d09c2b0b6f04a\n"
-	os.WriteFile(metaFile, []byte(content), 0644)
+	err := os.WriteFile(metaFile, []byte(content), 0644)
+	require.NoError(t, err)
 
 	// Create a cancelled context
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
 
-	_, err := app.readMeta(ctx)
-	if err != context.Canceled {
-		t.Errorf("readMeta() with cancelled context error = %v, want %v", err, context.Canceled)
-	}
+	_, err = app.readMeta(ctx)
+	assert.Equal(t, context.Canceled, err)
 }
 
 func TestApp_readDump_contextCancellation(t *testing.T) {
@@ -591,19 +561,18 @@ func TestApp_readDump_contextCancellation(t *testing.T) {
 	app := NewApp(WithRenderer(renderer))
 
 	// Create .pho directory and dump file
-	os.Mkdir(phoDir, 0755)
+	require.NoError(t, os.Mkdir(phoDir, 0755))
 	dumpFile := filepath.Join(phoDir, "_dump.jsonl")
 	content := `{"_id": {"$oid": "507f1f77bcf86cd799439011"}, "name": "test"}`
-	os.WriteFile(dumpFile, []byte(content), 0644)
+	err := os.WriteFile(dumpFile, []byte(content), 0644)
+	require.NoError(t, err)
 
 	// Create a cancelled context
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
 
-	_, err := app.readDump(ctx)
-	if err != context.Canceled {
-		t.Errorf("readDump() with cancelled context error = %v, want %v", err, context.Canceled)
-	}
+	_, err = app.readDump(ctx)
+	assert.Equal(t, context.Canceled, err)
 }
 
 // Additional tests for edge cases and coverage
@@ -617,28 +586,16 @@ func TestApp_extractChanges_errors(t *testing.T) {
 	ctx := context.Background()
 
 	_, err := app.extractChanges(ctx)
-	if err == nil {
-		t.Errorf("extractChanges() expected error for missing files, got nil")
-	}
+	assert.Error(t, err)
 }
 
 func TestConstants(t *testing.T) {
-	if phoDir != ".pho" {
-		t.Errorf("phoDir = %v, want .pho", phoDir)
-	}
-	if phoMetaFile != "_meta" {
-		t.Errorf("phoMetaFile = %v, want _meta", phoMetaFile)
-	}
-	if phoDumpBase != "_dump" {
-		t.Errorf("phoDumpBase = %v, want _dump", phoDumpBase)
-	}
+	assert.Equal(t, ".pho", phoDir)
+	assert.Equal(t, "_meta", phoMetaFile)
+	assert.Equal(t, "_dump", phoDumpBase)
 }
 
 func TestErrors(t *testing.T) {
-	if ErrNoMeta.Error() != "meta file is missing" {
-		t.Errorf("ErrNoMeta = %v, want 'meta file is missing'", ErrNoMeta)
-	}
-	if ErrNoDump.Error() != "dump file is missing" {
-		t.Errorf("ErrNoDump = %v, want 'dump file is missing'", ErrNoDump)
-	}
+	assert.Equal(t, "meta file is missing", ErrNoMeta.Error())
+	assert.Equal(t, "dump file is missing", ErrNoDump.Error())
 }

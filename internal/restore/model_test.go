@@ -2,21 +2,19 @@ package restore
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestErrNoop(t *testing.T) {
 	expected := "noop"
-	if ErrNoop.Error() != expected {
-		t.Errorf("ErrNoop.Error() = %v, want %v", ErrNoop.Error(), expected)
-	}
+	assert.Equal(t, expected, ErrNoop.Error())
 }
 
 func TestErrNoop_Type(t *testing.T) {
 	// Test that ErrNoop is indeed an error type
 	var err error = ErrNoop
-	if err == nil {
-		t.Error("ErrNoop should implement error interface")
-	}
+	assert.NotNil(t, err)
 }
 
 func TestErrNoop_Comparison(t *testing.T) {
@@ -26,7 +24,5 @@ func TestErrNoop_Comparison(t *testing.T) {
 	}
 
 	err := testFunc()
-	if err != ErrNoop {
-		t.Error("Function should return ErrNoop")
-	}
+	assert.Equal(t, ErrNoop, err)
 }

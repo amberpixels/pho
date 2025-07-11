@@ -3,6 +3,9 @@ package hashing
 import (
 	"crypto/sha256"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCalculateChecksum(t *testing.T) {
@@ -31,22 +34,15 @@ func TestCalculateChecksum(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := CalculateChecksum(tt.data, sha256.New())
-			if err != nil {
-				t.Errorf("CalculateChecksum() error = %v", err)
-				return
-			}
+			require.NoError(t, err)
 
 			// For the complex data test, just verify it's a valid SHA256 (64 hex chars)
 			if tt.name == "complex data" {
-				if len(result) != 64 {
-					t.Errorf("CalculateChecksum() invalid SHA256 length: got %d, want 64", len(result))
-				}
+				assert.Len(t, result, 64)
 				return
 			}
 
-			if result != tt.expected {
-				t.Errorf("CalculateChecksum() = %v, want %v", result, tt.expected)
-			}
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -56,18 +52,12 @@ func TestCalculateChecksumConsistency(t *testing.T) {
 
 	// Calculate checksum multiple times
 	checksum1, err := CalculateChecksum(data, sha256.New())
-	if err != nil {
-		t.Fatalf("First checksum failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	checksum2, err := CalculateChecksum(data, sha256.New())
-	if err != nil {
-		t.Fatalf("Second checksum failed: %v", err)
-	}
+	require.NoError(t, err)
 
-	if checksum1 != checksum2 {
-		t.Errorf("Checksum consistency failed: %s != %s", checksum1, checksum2)
-	}
+	assert.Equal(t, checksum1, checksum2)
 }
 
 func TestCalculateChecksumSensitivity(t *testing.T) {
@@ -75,37 +65,25 @@ func TestCalculateChecksumSensitivity(t *testing.T) {
 	data2 := []byte("test data 2")
 
 	checksum1, err := CalculateChecksum(data1, sha256.New())
-	if err != nil {
-		t.Fatalf("First checksum failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	checksum2, err := CalculateChecksum(data2, sha256.New())
-	if err != nil {
-		t.Fatalf("Second checksum failed: %v", err)
-	}
+	require.NoError(t, err)
 
-	if checksum1 == checksum2 {
-		t.Errorf("Different data should produce different checksums")
-	}
+	assert.NotEqual(t, checksum1, checksum2)
 }
 
 func TestCalculateChecksumLength(t *testing.T) {
 	data := []byte("test data for length verification")
 
 	checksum, err := CalculateChecksum(data, sha256.New())
-	if err != nil {
-		t.Fatalf("Checksum calculation failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	// SHA256 produces 64 character hex string
-	if len(checksum) != 64 {
-		t.Errorf("SHA256 checksum should be 64 characters, got %d", len(checksum))
-	}
+	assert.Len(t, checksum, 64)
 
 	// Verify it's all hex characters
 	for i, c := range checksum {
-		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) {
-			t.Errorf("Invalid hex character at position %d: %c", i, c)
-		}
+		assert.True(t, (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'), "Invalid hex character at position %d: %c", i, c)
 	}
 }

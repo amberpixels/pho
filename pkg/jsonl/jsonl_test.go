@@ -3,6 +3,9 @@ package jsonl
 import (
 	"os"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestJsonlDecoding(t *testing.T) {
@@ -29,27 +32,15 @@ func TestJsonlDecoding(t *testing.T) {
 		"without-comments",
 	} {
 		file, err := os.Open("testdata/samples." + filename + ".jsonl")
-		if err != nil {
-			t.Errorf("could not read testdata file %s: %s", filename, err)
-		}
+		require.NoError(t, err, "could not read testdata file %s", filename)
 
 		decoded, err := DecodeAll[Obj](file)
-		if err != nil {
-			t.Errorf("could not decode all %s: %s", filename, err)
-		}
+		require.NoError(t, err, "could not decode all %s", filename)
 
-		if len(decoded) != 3 {
-			t.Fatalf("len(decoded) must be 3 (%s), got %d", filename, len(decoded))
-		}
+		assert.Len(t, decoded, 3, "len(decoded) must be 3 (%s)", filename)
 
-		if decoded[0].Name != "Sample 9" {
-			t.Errorf("decoded[0] name expected to be Sample 9 got %s", decoded[0].Name)
-		}
-		if decoded[1].Name != "Sample 8" {
-			t.Errorf("decoded[0] name expected to be Sample 9 got %s", decoded[0].Name)
-		}
-		if decoded[2].Name != "Sample 7" {
-			t.Errorf("decoded[0] name expected to be Sample 9 got %s", decoded[0].Name)
-		}
+		assert.Equal(t, "Sample 9", decoded[0].Name)
+		assert.Equal(t, "Sample 8", decoded[1].Name)
+		assert.Equal(t, "Sample 7", decoded[2].Name)
 	}
 }

@@ -480,13 +480,8 @@ func TestRenderer_Format_ContextCancellation(t *testing.T) {
 
 	var buf bytes.Buffer
 	err := renderer.Format(ctx, cursor, &buf)
-
-	// The context cancellation should be handled by the cursor's Next method
-	// Our mock cursor doesn't check context, so this test mainly ensures the method
-	// can handle cancelled contexts without panicking
-	if err != nil {
-		// Error is acceptable but not required for this test
-	}
+	_ = err
+	// TODO: eventually check err
 }
 
 func TestExtJSONMode_TypeSafety(t *testing.T) {

@@ -3,6 +3,9 @@ package diff
 import (
 	"encoding/json"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestAction_String(t *testing.T) {
@@ -41,9 +44,7 @@ func TestAction_String(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := tt.action.String()
-			if result != tt.expected {
-				t.Errorf("String() = %v, want %v", result, tt.expected)
-			}
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -84,9 +85,7 @@ func TestAction_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := tt.action.IsValid()
-			if result != tt.expected {
-				t.Errorf("IsValid() = %v, want %v", result, tt.expected)
-			}
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -122,9 +121,7 @@ func TestAction_IsEffective(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := tt.action.IsEffective()
-			if result != tt.expected {
-				t.Errorf("IsEffective() = %v, want %v", result, tt.expected)
-			}
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -160,13 +157,8 @@ func TestAction_MarshalText(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := tt.action.MarshalText()
-			if err != nil {
-				t.Errorf("MarshalText() error = %v", err)
-				return
-			}
-			if string(result) != tt.expected {
-				t.Errorf("MarshalText() = %v, want %v", string(result), tt.expected)
-			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, string(result))
 		})
 	}
 }
@@ -222,20 +214,12 @@ func TestAction_UnmarshalText(t *testing.T) {
 			err := action.UnmarshalText([]byte(tt.input))
 
 			if tt.wantErr {
-				if err == nil {
-					t.Errorf("UnmarshalText() expected error, got nil")
-				}
+				assert.Error(t, err)
 				return
 			}
 
-			if err != nil {
-				t.Errorf("UnmarshalText() unexpected error: %v", err)
-				return
-			}
-
-			if action != tt.expected {
-				t.Errorf("UnmarshalText() = %v, want %v", action, tt.expected)
-			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, action)
 		})
 	}
 }
@@ -284,20 +268,12 @@ func TestParseAction(t *testing.T) {
 			result, err := ParseAction(tt.input)
 
 			if tt.wantErr {
-				if err == nil {
-					t.Errorf("ParseAction() expected error, got nil")
-				}
+				assert.Error(t, err)
 				return
 			}
 
-			if err != nil {
-				t.Errorf("ParseAction() unexpected error: %v", err)
-				return
-			}
-
-			if result != tt.expected {
-				t.Errorf("ParseAction() = %v, want %v", result, tt.expected)
-			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -330,23 +306,15 @@ func TestAction_JSONMarshaling(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Marshal to JSON
 			data, err := json.Marshal(tt.action)
-			if err != nil {
-				t.Errorf("json.Marshal() error = %v", err)
-				return
-			}
+			require.NoError(t, err)
 
 			// Unmarshal from JSON
 			var unmarshaled Action
 			err = json.Unmarshal(data, &unmarshaled)
-			if err != nil {
-				t.Errorf("json.Unmarshal() error = %v", err)
-				return
-			}
+			require.NoError(t, err)
 
 			// Compare
-			if unmarshaled != tt.action {
-				t.Errorf("JSON round-trip failed: got %v, want %v", unmarshaled, tt.action)
-			}
+			assert.Equal(t, tt.action, unmarshaled)
 		})
 	}
 }
@@ -382,25 +350,15 @@ func TestActionsDict_BackwardCompatibility(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.old != tt.new {
-				t.Errorf("Backward compatibility broken: %v != %v", tt.old, tt.new)
-			}
+			assert.Equal(t, tt.new, tt.old)
 		})
 	}
 }
 
 func TestAction_EnumValues(t *testing.T) {
 	// Test that enum values are sequential starting from 0
-	if ActionNoop != 0 {
-		t.Errorf("ActionNoop should be 0, got %d", ActionNoop)
-	}
-	if ActionUpdated != 1 {
-		t.Errorf("ActionUpdated should be 1, got %d", ActionUpdated)
-	}
-	if ActionDeleted != 2 {
-		t.Errorf("ActionDeleted should be 2, got %d", ActionDeleted)
-	}
-	if ActionAdded != 3 {
-		t.Errorf("ActionAdded should be 3, got %d", ActionAdded)
-	}
+	assert.Equal(t, Action(0), ActionNoop)
+	assert.Equal(t, Action(1), ActionUpdated)
+	assert.Equal(t, Action(2), ActionDeleted)
+	assert.Equal(t, Action(3), ActionAdded)
 }

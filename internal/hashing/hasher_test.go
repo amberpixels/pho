@@ -3,6 +3,8 @@ package hashing
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -51,40 +53,21 @@ func TestHash(t *testing.T) {
 			hashData, err := Hash(tt.doc)
 
 			if tt.wantErr {
-				if err == nil {
-					t.Errorf("Hash() expected error, got nil")
-				}
+				assert.Error(t, err)
 				return
 			}
 
-			if err != nil {
-				t.Errorf("Hash() unexpected error: %v", err)
-				return
-			}
-
-			if hashData == nil {
-				t.Errorf("Hash() returned nil hashData")
-				return
-			}
+			require.NoError(t, err)
+			assert.NotNil(t, hashData)
 
 			// Verify hash components
-			if hashData.GetChecksum() == "" {
-				t.Errorf("Hash() returned empty checksum")
-			}
-
-			if hashData.GetIdentifier() == "" {
-				t.Errorf("Hash() returned empty identifier")
-			}
+			assert.NotEmpty(t, hashData.GetChecksum())
+			assert.NotEmpty(t, hashData.GetIdentifier())
 
 			// Verify identifier parsing
 			identifiedBy, identifierValue := hashData.GetIdentifierParts()
-			if identifiedBy != "_id" {
-				t.Errorf("Hash() expected identifiedBy '_id', got '%s'", identifiedBy)
-			}
-
-			if identifierValue == nil {
-				t.Errorf("Hash() returned nil identifierValue")
-			}
+			assert.Equal(t, "_id", identifiedBy)
+			assert.NotNil(t, identifierValue)
 		})
 	}
 }
@@ -97,23 +80,14 @@ func TestHashData_String(t *testing.T) {
 	}
 
 	hashData, err := Hash(doc)
-	if err != nil {
-		t.Fatalf("Hash() failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	str := hashData.String()
-	if str == "" {
-		t.Errorf("String() returned empty string")
-	}
+	assert.NotEmpty(t, str)
 
 	// Verify format: should contain separator
-	if !containsString(str, ChecksumSeparator) {
-		t.Errorf("String() should contain checksum separator '%s'", ChecksumSeparator)
-	}
-
-	if !containsString(str, IdentifierSeparator) {
-		t.Errorf("String() should contain identifier separator '%s'", IdentifierSeparator)
-	}
+	assert.Contains(t, str, ChecksumSeparator)
+	assert.Contains(t, str, IdentifierSeparator)
 }
 
 func TestParse(t *testing.T) {
@@ -159,27 +133,16 @@ func TestParse(t *testing.T) {
 			hashData, err := Parse(tt.input)
 
 			if tt.wantErr {
-				if err == nil {
-					t.Errorf("Parse() expected error, got nil")
-				}
+				assert.Error(t, err)
 				return
 			}
 
-			if err != nil {
-				t.Errorf("Parse() unexpected error: %v", err)
-				return
-			}
-
-			if hashData == nil {
-				t.Errorf("Parse() returned nil hashData")
-				return
-			}
+			require.NoError(t, err)
+			assert.NotNil(t, hashData)
 
 			// Verify round-trip consistency
 			reconstructed := hashData.String()
-			if reconstructed != tt.input {
-				t.Errorf("Parse() round-trip failed: got %s, want %s", reconstructed, tt.input)
-			}
+			assert.Equal(t, tt.input, reconstructed)
 		})
 	}
 }
@@ -194,18 +157,12 @@ func TestHashConsistency(t *testing.T) {
 	}
 
 	hash1, err := Hash(doc)
-	if err != nil {
-		t.Fatalf("First hash failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	hash2, err := Hash(doc)
-	if err != nil {
-		t.Fatalf("Second hash failed: %v", err)
-	}
+	require.NoError(t, err)
 
-	if hash1.String() != hash2.String() {
-		t.Errorf("Hash consistency failed: %s != %s", hash1.String(), hash2.String())
-	}
+	assert.Equal(t, hash1.String(), hash2.String())
 }
 
 func TestHashSensitivity(t *testing.T) {
@@ -221,35 +178,11 @@ func TestHashSensitivity(t *testing.T) {
 	}
 
 	hash1, err := Hash(doc1)
-	if err != nil {
-		t.Fatalf("First hash failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	hash2, err := Hash(doc2)
-	if err != nil {
-		t.Fatalf("Second hash failed: %v", err)
-	}
+	require.NoError(t, err)
 
-	if hash1.GetChecksum() == hash2.GetChecksum() {
-		t.Errorf("Different documents should produce different checksums")
-	}
-
-	if hash1.GetIdentifier() != hash2.GetIdentifier() {
-		t.Errorf("Same _id should produce same identifier")
-	}
-}
-
-// Helper function
-func containsString(s, substr string) bool {
-	return len(s) >= len(substr) && s[len(s)-len(substr):] != substr && s[:len(substr)] != substr &&
-		findInString(s, substr)
-}
-
-func findInString(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
+	assert.NotEqual(t, hash1.GetChecksum(), hash2.GetChecksum())
+	assert.Equal(t, hash1.GetIdentifier(), hash2.GetIdentifier())
 }
