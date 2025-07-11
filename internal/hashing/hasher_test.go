@@ -20,7 +20,7 @@ func TestHash(t *testing.T) {
 			doc: bson.M{
 				"_id":  primitive.NewObjectID(),
 				"name": "test",
-				"data": map[string]interface{}{"nested": "value"},
+				"data": map[string]any{"nested": "value"},
 			},
 			wantErr: false,
 		},

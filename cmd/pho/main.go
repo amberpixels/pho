@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"pho/internal/logging"
 	"pho/internal/pho"
 	"pho/internal/render"
 	"strings"
@@ -159,25 +160,75 @@ func getCommonFlags() []cli.Flag {
 			Value:   true,
 			Usage:   "Show line numbers in output",
 		},
+		&cli.BoolFlag{
+			Name:    "verbose",
+			Aliases: []string{"v"},
+			Usage:   "Enable verbose output with detailed progress information",
+		},
+		&cli.BoolFlag{
+			Name:    "quiet",
+			Aliases: []string{"Q"},
+			Usage:   "Suppress all non-essential output (quiet mode)",
+		},
 	}
 
 	return append(connectionFlags, queryFlags...)
 }
 
+// getVerbosityLevel determines the verbosity level from CLI flags
+func getVerbosityLevel(cmd *cli.Command) logging.VerbosityLevel {
+	verbose := cmd.Bool("verbose")
+	quiet := cmd.Bool("quiet")
+	
+	// Validate conflicting flags
+	if verbose && quiet {
+		fmt.Fprintf(os.Stderr, "Error: --verbose and --quiet flags cannot be used together\n")
+		os.Exit(1)
+	}
+	
+	if quiet {
+		return logging.LevelQuiet
+	}
+	if verbose {
+		return logging.LevelVerbose
+	}
+	return logging.LevelNormal
+}
+
+// createLogger creates a logger with the appropriate verbosity level
+func createLogger(cmd *cli.Command) *logging.Logger {
+	level := getVerbosityLevel(cmd)
+	return logging.NewLogger(level)
+}
+
 // queryAction handles the main query and edit workflow
 func queryAction(ctx context.Context, cmd *cli.Command) error {
+	// Create logger with appropriate verbosity level
+	logger := createLogger(cmd)
+	
+	logger.Verbose("Starting query action with verbosity level: %s", logger.GetLevel().String())
+	
 	// Parse and validate ExtJSON mode
 	extjsonModeStr := cmd.String("extjson-mode")
+	logger.Debug("ExtJSON mode: %s", extjsonModeStr)
 	extjsonMode, err := parseExtJSONMode(extjsonModeStr)
 	if err != nil {
+		logger.Error("Invalid ExtJSON mode: %s", err)
 		return err
 	}
 
 	// Create pho app with configuration
+	uri := prepareMongoURI(cmd.String("uri"), cmd.String("host"), cmd.String("port"))
+	db := cmd.String("db")
+	collection := cmd.String("collection")
+	
+	logger.Debug("Configuration: URI=%s, DB=%s, Collection=%s", uri, db, collection)
+	logger.Verbose("Creating pho application instance")
+	
 	p := pho.NewApp(
-		pho.WithURI(prepareMongoURI(cmd.String("uri"), cmd.String("host"), cmd.String("port"))),
-		pho.WithDatabase(cmd.String("db")),
-		pho.WithCollection(cmd.String("collection")),
+		pho.WithURI(uri),
+		pho.WithDatabase(db),
+		pho.WithCollection(collection),
 		pho.WithRenderer(render.NewRenderer(
 			render.WithExtJSONMode(extjsonMode),
 			render.WithShowLineNumbers(cmd.Bool("line-numbers")),
@@ -190,62 +241,94 @@ func queryAction(ctx context.Context, cmd *cli.Command) error {
 	defer stop()
 
 	// Connect to database
+	logger.Verbose("Connecting to MongoDB database")
 	if err := p.ConnectDB(ctx); err != nil {
+		logger.Error("Failed to connect to database: %s", err)
 		return fmt.Errorf("failed on connecting to db: %w", err)
 	}
 	defer p.Close(ctx)
+	logger.Success("Connected to MongoDB database")
 
 	// Execute query
-	cursor, err := p.RunQuery(ctx, cmd.String("query"), cmd.Int64("limit"), cmd.String("sort"), cmd.String("projection"))
+	query := cmd.String("query")
+	limit := cmd.Int64("limit")
+	logger.Verbose("Executing query: %s (limit: %d)", query, limit)
+	
+	cursor, err := p.RunQuery(ctx, query, limit, cmd.String("sort"), cmd.String("projection"))
 	if err != nil {
+		logger.Error("Query execution failed: %s", err)
 		return fmt.Errorf("failed on executing query: %w", err)
 	}
 	defer cursor.Close(ctx)
+	logger.Success("Query executed successfully")
 
 	editCommand := cmd.String("edit")
 
 	// When not in --edit mode, simply output to stdout
 	if editCommand == "" {
+		logger.Verbose("Outputting results to stdout")
 		if err := p.Dump(ctx, cursor, os.Stdout); err != nil {
+			logger.Error("Failed to dump output: %s", err)
 			return fmt.Errorf("failed on dumping: %w", err)
 		}
+		logger.Success("Results output completed")
 		return nil
 	}
 
 	// Setup dump destination and open editor
+	logger.Verbose("Setting up dump destination for editor")
 	out, dumpPath, err := p.SetupDumpDestination()
 	if err != nil {
+		logger.Error("Failed to setup dump destination: %s", err)
 		return fmt.Errorf("failed on setting dump destination: %w", err)
 	}
 	defer out.Close()
+	logger.Debug("Dump file path: %s", dumpPath)
 
+	logger.Verbose("Dumping documents to file")
 	if err := p.Dump(ctx, cursor, out); err != nil {
+		logger.Error("Failed to dump to file: %s", err)
 		return fmt.Errorf("failed on dumping: %w", err)
 	}
+	logger.Success("Documents dumped to file")
 
+	logger.Verbose("Opening editor: %s", editCommand)
 	if err := p.OpenEditor(editCommand, dumpPath); err != nil {
+		logger.Error("Failed to open editor: %s", err)
 		return fmt.Errorf("failed on opening [%s]: %w", editCommand, err)
 	}
+	logger.Success("Editor session completed")
 
 	return nil
 }
 
 // reviewAction handles reviewing changes
 func reviewAction(ctx context.Context, cmd *cli.Command) error {
+	logger := createLogger(cmd)
+	
+	logger.Verbose("Starting review action")
+	
 	p := pho.NewApp(
 		pho.WithURI(prepareMongoURI(cmd.String("uri"), cmd.String("host"), cmd.String("port"))),
 		pho.WithDatabase(cmd.String("db")),
 		pho.WithCollection(cmd.String("collection")),
 	)
 
+	logger.Verbose("Reviewing changes in documents")
 	if err := p.ReviewChanges(ctx); err != nil {
+		logger.Error("Failed to review changes: %s", err)
 		return fmt.Errorf("failed on reviewing changes: %w", err)
 	}
+	logger.Success("Change review completed")
 	return nil
 }
 
 // applyAction handles applying changes to MongoDB
 func applyAction(ctx context.Context, cmd *cli.Command) error {
+	logger := createLogger(cmd)
+	
+	logger.Verbose("Starting apply action")
+	
 	p := pho.NewApp(
 		pho.WithURI(prepareMongoURI(cmd.String("uri"), cmd.String("host"), cmd.String("port"))),
 		pho.WithDatabase(cmd.String("db")),
@@ -258,14 +341,20 @@ func applyAction(ctx context.Context, cmd *cli.Command) error {
 
 	// For apply changes, we need to connect to the database using stored metadata
 	// or command line parameters if metadata is not available
+	logger.Verbose("Connecting to database for applying changes")
 	if err := p.ConnectDBForApply(ctx); err != nil {
+		logger.Error("Failed to connect to database for apply: %s", err)
 		return fmt.Errorf("failed on connecting to db for apply: %w", err)
 	}
 	defer p.Close(ctx)
+	logger.Success("Connected to database")
 
+	logger.Verbose("Applying changes to MongoDB")
 	if err := p.ApplyChanges(ctx); err != nil {
+		logger.Error("Failed to apply changes: %s", err)
 		return fmt.Errorf("failed on applying changes: %w", err)
 	}
+	logger.Success("Changes applied successfully")
 	return nil
 }
 

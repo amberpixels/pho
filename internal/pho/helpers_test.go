@@ -35,13 +35,13 @@ func TestParseQuery(t *testing.T) {
 		{
 			name:     "nested object query",
 			queryStr: `{"user": {"name": "test", "active": true}}`,
-			expected: bson.M{"user": map[string]interface{}{"name": "test", "active": true}},
+			expected: bson.M{"user": map[string]any{"name": "test", "active": true}},
 			wantErr:  false,
 		},
 		{
 			name:     "array query",
 			queryStr: `{"tags": ["go", "mongodb"]}`,
-			expected: bson.M{"tags": []interface{}{"go", "mongodb"}},
+			expected: bson.M{"tags": []any{"go", "mongodb"}},
 			wantErr:  false,
 		},
 		{

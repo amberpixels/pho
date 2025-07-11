@@ -11,7 +11,7 @@ import (
 func TestNewIdentifierValue(t *testing.T) {
 	tests := []struct {
 		name    string
-		value   interface{}
+		value   any
 		wantErr bool
 	}{
 		{
@@ -62,7 +62,7 @@ func TestNewIdentifierValue(t *testing.T) {
 func TestIdentifierValue_String(t *testing.T) {
 	tests := []struct {
 		name     string
-		value    interface{}
+		value    any
 		expected string
 	}{
 		{
@@ -91,7 +91,7 @@ func TestParseIdentifierValue(t *testing.T) {
 	tests := []struct {
 		name      string
 		input     string
-		wantValue interface{}
+		wantValue any
 		wantErr   bool
 	}{
 		{
@@ -166,7 +166,7 @@ func TestParseIdentifierValue(t *testing.T) {
 func TestIdentifierValue_RoundTrip(t *testing.T) {
 	tests := []struct {
 		name  string
-		value interface{}
+		value any
 	}{
 		{
 			name:  "string round trip",

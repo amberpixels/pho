@@ -14,7 +14,7 @@ func TestNewChange(t *testing.T) {
 	tests := []struct {
 		name            string
 		identifiedBy    string
-		identifierValue interface{}
+		identifierValue any
 		action          Action
 		data            []bson.M
 		expectData      bool

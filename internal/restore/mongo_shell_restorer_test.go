@@ -482,7 +482,7 @@ func TestMongoShellRestorer_Build_ComplexData(t *testing.T) {
 		Data: bson.M{
 			"_id":    "12345",
 			"nested": bson.M{"field": "value"},
-			"array":  []interface{}{1, "two", true},
+			"array":  []any{1, "two", true},
 			"number": 42.5,
 			"bool":   false,
 		},

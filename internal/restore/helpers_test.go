@@ -171,8 +171,8 @@ func TestCloneBsonM_TypePreservation(t *testing.T) {
 		"float":  3.14159,
 		"bool":   true,
 		"bytes":  []byte("binary data"),
-		"slice":  []interface{}{"a", 1, true},
-		"map":    map[string]interface{}{"key": "value"},
+		"slice":  []any{"a", 1, true},
+		"map":    map[string]any{"key": "value"},
 	}
 
 	clone := cloneBsonM(original)

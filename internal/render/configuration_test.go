@@ -333,8 +333,8 @@ func TestWithIgnoreFailures(t *testing.T) {
 func TestRoundTripJSON(t *testing.T) {
 	tests := []struct {
 		name     string
-		input    interface{}
-		expected interface{}
+		input    any
+		expected any
 		wantErr  bool
 	}{
 		{
@@ -352,12 +352,12 @@ func TestRoundTripJSON(t *testing.T) {
 		},
 		{
 			name: "simple map",
-			input: map[string]interface{}{
+			input: map[string]any{
 				"key1": "value1",
 				"key2": 42,
 				"key3": true,
 			},
-			expected: &map[string]interface{}{},
+			expected: &map[string]any{},
 			wantErr:  false,
 		},
 		{
@@ -400,7 +400,7 @@ func TestRoundTripJSON_InvalidInput(t *testing.T) {
 
 func TestRoundTripJSON_InvalidOutput(t *testing.T) {
 	// Test with valid input but invalid output type
-	input := map[string]interface{}{"key": "value"}
+	input := map[string]any{"key": "value"}
 	var output string // string can't hold the map structure
 
 	err := RoundTripJSON(input, &output)

@@ -262,7 +262,7 @@ func (m *Marshaller) marshalShellValue(v any, buf *bytes.Buffer, indent int) err
 		buf.WriteString("]")
 
 	default:
-		// Handle interface{} and reflect.Value for more complex types
+		// Handle any and reflect.Value for more complex types
 		rv := reflect.ValueOf(v)
 		switch rv.Kind() {
 		case reflect.Map:
