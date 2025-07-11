@@ -553,8 +553,8 @@ func TestApp_readMeta_contextCancellation(t *testing.T) {
 func TestApp_readDump_contextCancellation(t *testing.T) {
 	tempDir := t.TempDir()
 	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-	os.Chdir(tempDir)
+	defer func() { _ = os.Chdir(originalDir) }()
+	require.NoError(t, os.Chdir(tempDir))
 
 	renderer := render.NewRenderer(render.WithAsValidJSON(false))
 
@@ -579,8 +579,8 @@ func TestApp_readDump_contextCancellation(t *testing.T) {
 func TestApp_extractChanges_errors(t *testing.T) {
 	tempDir := t.TempDir()
 	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-	os.Chdir(tempDir)
+	defer func() { _ = os.Chdir(originalDir) }()
+	require.NoError(t, os.Chdir(tempDir))
 
 	app := NewApp()
 	ctx := context.Background()
