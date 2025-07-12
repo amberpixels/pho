@@ -2,6 +2,7 @@ package restore
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"pho/internal/diff"
 
@@ -9,7 +10,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-// MongoClientRestorer restores changes via mongo go client
+// MongoClientRestorer restores changes via mongo go client.
 type MongoClientRestorer struct {
 	dbCollection *mongo.Collection
 }
@@ -20,20 +21,20 @@ func NewMongoClientRestorer(dbCollection *mongo.Collection) *MongoClientRestorer
 
 func (b *MongoClientRestorer) Build(c *diff.Change) (func(ctx context.Context) error, error) {
 	if c == nil {
-		return nil, fmt.Errorf("change cannot be nil")
+		return nil, errors.New("change cannot be nil")
 	}
 	if c.IdentifiedBy == "" || c.IdentifierValue == "" {
-		return nil, fmt.Errorf("change identifiedBy+identifierValue are required fields")
+		return nil, errors.New("change identifiedBy+identifierValue are required fields")
 	}
 	if b.dbCollection == nil {
-		return nil, fmt.Errorf("connected db collection is required")
+		return nil, errors.New("connected db collection is required")
 	}
 
 	return func(ctx context.Context) error {
 		switch c.Action {
-		case diff.ActionsDict.Updated:
+		case diff.ActionUpdated:
 			if c.Data == nil {
-				return fmt.Errorf("updated action requires a doc")
+				return errors.New("updated action requires a doc")
 			}
 
 			// Clone data to avoid mutating the original
@@ -56,9 +57,9 @@ func (b *MongoClientRestorer) Build(c *diff.Change) (func(ctx context.Context) e
 
 			return nil
 
-		case diff.ActionsDict.Added:
+		case diff.ActionAdded:
 			if c.Data == nil {
-				return fmt.Errorf("added action requires a doc")
+				return errors.New("added action requires a doc")
 			}
 
 			_, err := b.dbCollection.InsertOne(ctx, c.Data)
@@ -68,7 +69,7 @@ func (b *MongoClientRestorer) Build(c *diff.Change) (func(ctx context.Context) e
 
 			return nil
 
-		case diff.ActionsDict.Deleted:
+		case diff.ActionDeleted:
 			filter := bson.M{c.IdentifiedBy: c.IdentifierValue}
 			result, err := b.dbCollection.DeleteOne(ctx, filter)
 			if err != nil {
@@ -82,7 +83,7 @@ func (b *MongoClientRestorer) Build(c *diff.Change) (func(ctx context.Context) e
 
 			return nil
 
-		case diff.ActionsDict.Noop:
+		case diff.ActionNoop:
 			// No operation needed for noop actions
 			return ErrNoop
 

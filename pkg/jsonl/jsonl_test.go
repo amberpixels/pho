@@ -1,18 +1,19 @@
-package jsonl
+package jsonl_test
 
 import (
 	"os"
 	"testing"
+
+	"pho/pkg/jsonl"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestJsonlDecoding(t *testing.T) {
-
 	type Obj struct {
 		Name string `json:"name"`
-		Id   struct {
+		ID   struct {
 			Oid string `json:"$oid"`
 		} `json:"_id"`
 		V *struct {
@@ -34,7 +35,7 @@ func TestJsonlDecoding(t *testing.T) {
 		file, err := os.Open("testdata/samples." + filename + ".jsonl")
 		require.NoError(t, err, "could not read testdata file %s", filename)
 
-		decoded, err := DecodeAll[Obj](file)
+		decoded, err := jsonl.DecodeAll[Obj](file)
 		require.NoError(t, err, "could not decode all %s", filename)
 
 		assert.Len(t, decoded, 3, "len(decoded) must be 3 (%s)", filename)

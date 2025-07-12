@@ -1,6 +1,7 @@
 package restore
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -189,7 +190,7 @@ func TestMongoShellRestorer_Build_UpdateAction(t *testing.T) {
 
 			// Ensure _id field is excluded from $set operation (it shouldn't be updated)
 			if tt.change.Data != nil {
-				if _, hasId := tt.change.Data["_id"]; hasId && tt.change.IdentifiedBy == "_id" {
+				if _, hasID := tt.change.Data["_id"]; hasID && tt.change.IdentifiedBy == "_id" {
 					// The original data should still have _id, but the command shouldn't include it in $set
 					lines := strings.Split(result, ":")
 					setIndex := -1
@@ -360,7 +361,7 @@ func TestMongoShellRestorer_Build_NoopAction(t *testing.T) {
 
 	result, err := restorer.Build(change)
 
-	if err != ErrNoop {
+	if !errors.Is(err, ErrNoop) {
 		t.Errorf("Build() error = %v, want ErrNoop", err)
 	}
 

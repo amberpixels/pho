@@ -198,7 +198,7 @@ func TestApp_ConnectDB(t *testing.T) {
 			err := app.ConnectDB(ctx)
 
 			if tt.wantErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				if tt.errorContains != "" {
 					assert.Contains(t, err.Error(), tt.errorContains)
 				}
@@ -238,7 +238,7 @@ func TestApp_Close(t *testing.T) {
 			err := app.Close(ctx)
 
 			if tt.wantErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 			} else {
 				require.NoError(t, err)
 			}
@@ -249,13 +249,9 @@ func TestApp_Close(t *testing.T) {
 func TestApp_setupPhoDir(t *testing.T) {
 	// Create a temporary directory for testing
 	tempDir := t.TempDir()
-	originalDir, _ := os.Getwd()
-	defer func() {
-		require.NoError(t, os.Chdir(originalDir))
-	}()
 
 	// Change to temp directory for test
-	require.NoError(t, os.Chdir(tempDir))
+	t.Chdir(tempDir)
 
 	app := NewApp()
 
@@ -275,12 +271,8 @@ func TestApp_setupPhoDir(t *testing.T) {
 func TestApp_SetupDumpDestination(t *testing.T) {
 	// Create a temporary directory for testing
 	tempDir := t.TempDir()
-	originalDir, _ := os.Getwd()
-	defer func() {
-		require.NoError(t, os.Chdir(originalDir))
-	}()
 	// Change to temp directory for test
-	require.NoError(t, os.Chdir(tempDir))
+	t.Chdir(tempDir)
 
 	renderer := render.NewRenderer(render.WithAsValidJSON(false)) // Use JSONL format
 
@@ -300,7 +292,7 @@ func TestApp_SetupDumpDestination(t *testing.T) {
 
 func TestApp_OpenEditor(t *testing.T) {
 	// Create a temporary file for testing
-	tempFile, err := os.CreateTemp("", "test_*.json")
+	tempFile, err := os.CreateTemp(t.TempDir(), "test_*.json")
 	require.NoError(t, err)
 	defer os.Remove(tempFile.Name())
 	tempFile.Close()
@@ -331,7 +323,7 @@ func TestApp_OpenEditor(t *testing.T) {
 			err := app.OpenEditor(tt.editorCmd, tt.filePath)
 
 			if tt.wantErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 			} else {
 				require.NoError(t, err)
 			}
@@ -342,35 +334,23 @@ func TestApp_OpenEditor(t *testing.T) {
 func TestApp_readMeta_errors(t *testing.T) {
 	// Create a temporary directory for testing
 	tempDir := t.TempDir()
-	originalDir, err := os.Getwd()
-	require.NoError(t, err)
-
-	defer func() {
-		require.NoError(t, os.Chdir(originalDir))
-	}()
 	// Change to temp directory for test
-	require.NoError(t, os.Chdir(tempDir))
+	t.Chdir(tempDir)
 
 	app := NewApp()
 	ctx := context.Background()
 
 	// Test missing meta file
-	_, err = app.readMeta(ctx)
-	assert.Error(t, err)
+	_, err := app.readMeta(ctx)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "meta file is missing")
 }
 
 func TestApp_readDump_errors(t *testing.T) {
 	// Create a temporary directory for testing
 	tempDir := t.TempDir()
-	originalDir, err := os.Getwd()
-	require.NoError(t, err)
-
-	defer func() {
-		require.NoError(t, os.Chdir(originalDir))
-	}()
 	// Change to temp directory for test
-	require.NoError(t, os.Chdir(tempDir))
+	t.Chdir(tempDir)
 
 	renderer := render.NewRenderer(render.WithAsValidJSON(false))
 
@@ -378,8 +358,8 @@ func TestApp_readDump_errors(t *testing.T) {
 	ctx := context.Background()
 
 	// Test missing dump file
-	_, err = app.readDump(ctx)
-	assert.Error(t, err)
+	_, err := app.readDump(ctx)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "meta file is missing")
 }
 
@@ -406,7 +386,7 @@ func TestApp_ReviewChanges_errors(t *testing.T) {
 			err := app.ReviewChanges(ctx)
 
 			if tt.wantErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				if tt.errorContains != "" {
 					assert.Contains(t, err.Error(), tt.errorContains)
 				}
@@ -452,7 +432,7 @@ func TestApp_ApplyChanges_errors(t *testing.T) {
 			err := app.ApplyChanges(ctx)
 
 			if tt.wantErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				if tt.errorContains != "" {
 					assert.Contains(t, err.Error(), tt.errorContains)
 				}
@@ -501,7 +481,7 @@ func TestApp_RunQuery_errors(t *testing.T) {
 			_, err := app.RunQuery(ctx, tt.query, 0, "", "")
 
 			if tt.wantErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				if tt.errorContains != "" {
 					assert.Contains(t, err.Error(), tt.errorContains)
 				}
@@ -523,15 +503,10 @@ func TestApp_Dump_stdout(t *testing.T) {
 	assert.NotNil(t, app)
 }
 
-// Test context cancellation
+// Test context cancellation.
 func TestApp_readMeta_contextCancellation(t *testing.T) {
 	tempDir := t.TempDir()
-	originalDir, _ := os.Getwd()
-	defer func() {
-		require.NoError(t, os.Chdir(originalDir))
-	}()
-
-	require.NoError(t, os.Chdir(tempDir))
+	t.Chdir(tempDir)
 
 	app := NewApp()
 
@@ -552,9 +527,7 @@ func TestApp_readMeta_contextCancellation(t *testing.T) {
 
 func TestApp_readDump_contextCancellation(t *testing.T) {
 	tempDir := t.TempDir()
-	originalDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(originalDir) }()
-	require.NoError(t, os.Chdir(tempDir))
+	t.Chdir(tempDir)
 
 	renderer := render.NewRenderer(render.WithAsValidJSON(false))
 
@@ -575,18 +548,16 @@ func TestApp_readDump_contextCancellation(t *testing.T) {
 	assert.Equal(t, context.Canceled, err)
 }
 
-// Additional tests for edge cases and coverage
+// Additional tests for edge cases and coverage.
 func TestApp_extractChanges_errors(t *testing.T) {
 	tempDir := t.TempDir()
-	originalDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(originalDir) }()
-	require.NoError(t, os.Chdir(tempDir))
+	t.Chdir(tempDir)
 
 	app := NewApp()
 	ctx := context.Background()
 
 	_, err := app.extractChanges(ctx)
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestConstants(t *testing.T) {

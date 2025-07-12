@@ -1,7 +1,9 @@
-package hashing
+package hashing_test
 
 import (
 	"testing"
+
+	"pho/internal/hashing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -50,7 +52,7 @@ func TestHash(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			hashData, err := Hash(tt.doc)
+			hashData, err := hashing.Hash(tt.doc)
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -79,15 +81,15 @@ func TestHashData_String(t *testing.T) {
 		"name": "test document",
 	}
 
-	hashData, err := Hash(doc)
+	hashData, err := hashing.Hash(doc)
 	require.NoError(t, err)
 
 	str := hashData.String()
 	assert.NotEmpty(t, str)
 
 	// Verify format: should contain separator
-	assert.Contains(t, str, ChecksumSeparator)
-	assert.Contains(t, str, IdentifierSeparator)
+	assert.Contains(t, str, hashing.ChecksumSeparator)
+	assert.Contains(t, str, hashing.IdentifierSeparator)
 }
 
 func TestParse(t *testing.T) {
@@ -130,7 +132,7 @@ func TestParse(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			hashData, err := Parse(tt.input)
+			hashData, err := hashing.Parse(tt.input)
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -156,10 +158,10 @@ func TestHashConsistency(t *testing.T) {
 		"field3": true,
 	}
 
-	hash1, err := Hash(doc)
+	hash1, err := hashing.Hash(doc)
 	require.NoError(t, err)
 
-	hash2, err := Hash(doc)
+	hash2, err := hashing.Hash(doc)
 	require.NoError(t, err)
 
 	assert.Equal(t, hash1.String(), hash2.String())
@@ -177,10 +179,10 @@ func TestHashSensitivity(t *testing.T) {
 		"value": "modified",
 	}
 
-	hash1, err := Hash(doc1)
+	hash1, err := hashing.Hash(doc1)
 	require.NoError(t, err)
 
-	hash2, err := Hash(doc2)
+	hash2, err := hashing.Hash(doc2)
 	require.NoError(t, err)
 
 	assert.NotEqual(t, hash1.GetChecksum(), hash2.GetChecksum())

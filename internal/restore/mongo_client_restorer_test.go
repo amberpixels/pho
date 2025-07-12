@@ -332,7 +332,7 @@ func TestMongoClientRestorer_Build_EmptyFieldValidation(t *testing.T) {
 	}
 }
 
-// Test that we can create execution functions even if we can't execute them
+// Test that we can create execution functions even if we can't execute them.
 func TestMongoClientRestorer_ExecutionFunctionCreation(t *testing.T) {
 	// This test verifies that the Build method returns the correct function signature
 	// even though we can't test execution without a real MongoDB connection
@@ -357,7 +357,7 @@ func TestMongoClientRestorer_ExecutionFunctionCreation(t *testing.T) {
 	}
 }
 
-// Test the function signature requirements
+// Test the function signature requirements.
 func TestMongoClientRestorer_FunctionSignature(t *testing.T) {
 	// Test that the returned function has the correct signature
 	// We can't test execution, but we can verify the function type

@@ -256,10 +256,10 @@ func TestDumpDoc_withRealExtJSON(t *testing.T) {
 	}
 }
 
-// Test edge cases and type safety
+// Test edge cases and type safety.
 func TestDumpDoc_typeSafety(t *testing.T) {
 	// Test that DumpDoc is indeed bson.M underneath
-	var doc DumpDoc = DumpDoc(make(bson.M))
+	var doc = DumpDoc(make(bson.M))
 
 	// Should be able to add fields like a regular bson.M
 	doc["test"] = "value"

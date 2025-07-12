@@ -7,7 +7,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-// ParsedMeta stores hashed lines and other meta
+// ParsedMeta stores hashed lines and other meta.
 type ParsedMeta struct {
 	// Connection details for review/apply operations
 	URI        string
@@ -23,17 +23,17 @@ type ParsedMeta struct {
 type DumpDoc bson.M
 
 // UnmarshalJSON for now is a hack, as we hardcode the way unmarshal parameters in here
-// Whole thing of DumpDoc is required, so it's properly parsed back from ExtJson into bson
+// Whole thing of DumpDoc is required, so it's properly parsed back from ExtJson into bson.
 func (tx *DumpDoc) UnmarshalJSON(raw []byte) error {
 	return bson.UnmarshalExtJSON(raw, true, tx)
 }
 
-// ToJSON serializes the metadata to JSON format
+// ToJSON serializes the metadata to JSON format.
 func (meta *ParsedMeta) ToJSON() ([]byte, error) {
 	return json.MarshalIndent(meta, "", "  ")
 }
 
-// FromJSON deserializes metadata from JSON format
+// FromJSON deserializes metadata from JSON format.
 func (meta *ParsedMeta) FromJSON(data []byte) error {
 	return json.Unmarshal(data, meta)
 }

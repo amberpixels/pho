@@ -10,7 +10,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-// mockCursor implements the Cursor interface for testing
+// mockCursor implements the Cursor interface for testing.
 type mockCursor struct {
 	docs    []bson.M
 	current int
@@ -20,7 +20,7 @@ func newMockCursor(docs []bson.M) *mockCursor {
 	return &mockCursor{docs: docs, current: -1}
 }
 
-func (c *mockCursor) Next(ctx context.Context) bool {
+func (c *mockCursor) Next(_ context.Context) bool {
 	c.current++
 	return c.current < len(c.docs)
 }
@@ -363,17 +363,17 @@ func TestRenderer_Format(t *testing.T) {
 	}
 }
 
-// errorCursor is a cursor that always returns an error on Decode
+// errorCursor is a cursor that always returns an error on Decode.
 type errorCursor struct {
 	callCount int
 }
 
-func (c *errorCursor) Next(ctx context.Context) bool {
+func (c *errorCursor) Next(_ context.Context) bool {
 	c.callCount++
 	return c.callCount <= 1 // Return true once to trigger Decode
 }
 
-func (c *errorCursor) Decode(v any) error {
+func (c *errorCursor) Decode(_ any) error {
 	return errors.New("decode error")
 }
 
@@ -420,10 +420,10 @@ func TestRenderer_Format_DecodeError(t *testing.T) {
 	}
 }
 
-// writeErrorWriter is a writer that always returns an error
+// writeErrorWriter is a writer that always returns an error.
 type writeErrorWriter struct{}
 
-func (w *writeErrorWriter) Write(p []byte) (n int, err error) {
+func (w *writeErrorWriter) Write(_ []byte) (int, error) {
 	return 0, errors.New("write error")
 }
 
@@ -470,7 +470,7 @@ func TestRenderer_Format_WriteError(t *testing.T) {
 	}
 }
 
-func TestRenderer_Format_ContextCancellation(t *testing.T) {
+func TestRenderer_Format_ContextCancellation(_ *testing.T) {
 	renderer := NewRenderer(WithExtJSONMode(ExtJSONModes.Relaxed))
 	cursor := newMockCursor([]bson.M{{"name": "test"}})
 

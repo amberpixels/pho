@@ -2,11 +2,12 @@ package hashing
 
 import (
 	"fmt"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"strings"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-// IdentifierValue stores the X value of `{_id:X}` identifying pair
+// IdentifierValue stores the X value of `{_id:X}` identifying pair.
 type IdentifierValue struct {
 	// Value possibly now: string | primitive.ObjectID
 	Value any
@@ -22,7 +23,7 @@ func NewIdentifierValue(v any) *IdentifierValue {
 	return id
 }
 
-// String returns string representation used in meta and output
+// String returns string representation used in meta and output.
 func (id *IdentifierValue) String() string {
 	switch t := id.Value.(type) {
 	case string:
@@ -36,7 +37,7 @@ func (id *IdentifierValue) String() string {
 }
 
 // ParseIdentifierValue here does the reverse operation of String()
-// e.g. string `ObjectID("X")` will become an actual primitive.ObjectID
+// e.g. string `ObjectID("X")` will become an actual primitive.ObjectID.
 func ParseIdentifierValue(s string) (*IdentifierValue, error) {
 	// TODO: rewrite via regex
 	if strings.HasPrefix(s, `ObjectID("`) && strings.HasSuffix(s, `")`) {

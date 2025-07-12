@@ -187,7 +187,7 @@ func TestParseProjection(t *testing.T) {
 	}
 }
 
-// Test edge cases for parseSort with complex scenarios
+// Test edge cases for parseSort with complex scenarios.
 func TestParseSort_EdgeCases(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -252,7 +252,7 @@ func TestParseSort_EdgeCases(t *testing.T) {
 	}
 }
 
-// Test that parseProjection is indeed using parseSort internally
+// Test that parseProjection is indeed using parseSort internally.
 func TestParseProjection_UsesParseSort(t *testing.T) {
 	input := "name,-_id"
 

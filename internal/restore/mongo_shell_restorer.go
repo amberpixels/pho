@@ -1,6 +1,7 @@
 package restore
 
 import (
+	"errors"
 	"fmt"
 	"pho/internal/diff"
 	"pho/pkg/extjson"
@@ -17,21 +18,21 @@ func NewMongoShellRestorer(collectionName string) *MongoShellRestorer {
 	return &MongoShellRestorer{collectionName}
 }
 
-// Build builds a shell command for the given change
+// Build builds a shell command for the given change.
 func (b *MongoShellRestorer) Build(c *diff.Change) (string, error) {
 	if c == nil {
-		return "", fmt.Errorf("change cannot be nil")
+		return "", errors.New("change cannot be nil")
 	}
 	if c.IdentifiedBy == "" || c.IdentifierValue == "" {
-		return "", fmt.Errorf("change identifiedBy+identifierValue are required fields")
+		return "", errors.New("change identifiedBy+identifierValue are required fields")
 	}
 
 	switch c.Action {
-	case diff.ActionsDict.Updated:
+	case diff.ActionUpdated:
 
 		var marshalledData []byte
 		if c.Data == nil {
-			return "", fmt.Errorf("updated action requires a doc")
+			return "", errors.New("updated action requires a doc")
 		}
 
 		// Clone data to avoid mutating the original
@@ -48,7 +49,7 @@ func (b *MongoShellRestorer) Build(c *diff.Change) (string, error) {
 			c.IdentifiedBy, c.IdentifierValue,
 			marshalledData,
 		), nil
-	case diff.ActionsDict.Added:
+	case diff.ActionAdded:
 
 		var marshalledData []byte
 		if c.Data != nil {
@@ -62,15 +63,15 @@ func (b *MongoShellRestorer) Build(c *diff.Change) (string, error) {
 			b.collectionName,
 			marshalledData,
 		), nil
-	case diff.ActionsDict.Deleted:
+	case diff.ActionDeleted:
 		return fmt.Sprintf(`db.getCollection("%s").remove({"%s":%v});`,
 			b.collectionName,
 			c.IdentifiedBy, c.IdentifierValue,
 		), nil
-	case diff.ActionsDict.Noop:
+	case diff.ActionNoop:
 		// it's considered caller not to request commands for Noop actions
 		return "", ErrNoop
 	default:
-		return "", fmt.Errorf("invalid action type")
+		return "", errors.New("invalid action type")
 	}
 }

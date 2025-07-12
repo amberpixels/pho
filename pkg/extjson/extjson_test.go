@@ -21,7 +21,7 @@ func TestMarshaller_Marshal_OnSingleObject(t *testing.T) {
 	}
 
 	var stable []byte
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		got, err := mrshlr.Marshal(testData)
 		require.NoError(t, err, "marshal expects to succeed but failed")
 

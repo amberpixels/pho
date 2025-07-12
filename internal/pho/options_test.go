@@ -3,8 +3,9 @@ package pho
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"pho/internal/render"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestWithURI(t *testing.T) {
@@ -230,13 +231,13 @@ func TestOptions_partialApplication(t *testing.T) {
 
 	assert.Equal(t, "mongodb://localhost:27017", app.uri)
 	assert.Equal(t, "testdb", app.dbName)
-	assert.Equal(t, "", app.collectionName)
+	assert.Empty(t, app.collectionName)
 	assert.Nil(t, app.render)
 }
 
 func TestOption_typeSignature(t *testing.T) {
 	// Test that Option type works as expected
-	var option Option = WithURI("test")
+	var option = WithURI("test")
 
 	app := &App{}
 	option(app)

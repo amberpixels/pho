@@ -131,10 +131,9 @@ func TestCloneBsonM_NestedMutationBehavior(t *testing.T) {
 
 	// This demonstrates shallow copy behavior - nested objects are shared
 	if originalNested, ok := original["nested"].(bson.M); ok {
-		if originalNested["inner"] != "modified" { //nolint: staticcheck
-			// This behavior depends on maps.Copy implementation
-			// If it changes in the future, this test documents the current behavior
-		}
+		// Document expected behavior: maps.Copy creates shallow copies
+		// so nested objects are shared between original and clone
+		_ = originalNested["inner"] // Access to document the expected behavior
 	}
 
 	// But top-level additions don't affect the original
@@ -148,18 +147,18 @@ func TestCloneBsonM_EmptyAndNilHandling(t *testing.T) {
 	empty := bson.M{}
 	clonedEmpty := cloneBsonM(empty)
 
-	assert.Len(t, clonedEmpty, 0)
+	assert.Empty(t, clonedEmpty)
 
 	// Add to clone, shouldn't affect original
 	clonedEmpty["test"] = "value"
-	assert.Len(t, empty, 0)
+	assert.Empty(t, empty)
 
 	// Test nil input
 	var nilDoc bson.M
 	clonedNil := cloneBsonM(nilDoc)
 
 	assert.NotNil(t, clonedNil)
-	assert.Len(t, clonedNil, 0)
+	assert.Empty(t, clonedNil)
 }
 
 func TestCloneBsonM_TypePreservation(t *testing.T) {
@@ -189,7 +188,7 @@ func TestCloneBsonM_TypePreservation(t *testing.T) {
 func TestCloneBsonM_CapacityOptimization(t *testing.T) {
 	// Test that the clone has appropriate capacity
 	large := make(bson.M, 100)
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		large[fmt.Sprintf("key%d", i)] = i
 	}
 

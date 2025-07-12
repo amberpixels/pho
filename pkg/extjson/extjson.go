@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -18,17 +19,17 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-// ExtJSONMode represents the different ExtJSON formatting modes
-type ExtJSONMode string
+// Mode represents the different ExtJSON formatting modes.
+type Mode string
 
 const (
-	Canonical ExtJSONMode = "canonical"
-	Relaxed   ExtJSONMode = "relaxed"
-	Shell     ExtJSONMode = "shell"
+	Canonical Mode = "canonical"
+	Relaxed   Mode = "relaxed"
+	Shell     Mode = "shell"
 )
 
 type Marshaller struct {
-	mode       ExtJSONMode
+	mode       Mode
 	canonical  bool
 	escapeHTML bool
 	compact    bool
@@ -37,7 +38,7 @@ type Marshaller struct {
 	indent string
 }
 
-func NewMarshaller(mode ExtJSONMode) *Marshaller {
+func NewMarshaller(mode Mode) *Marshaller {
 	canonical := mode == Canonical
 	return &Marshaller{
 		mode:      mode,
@@ -62,7 +63,7 @@ func (m *Marshaller) WithIndent(v string) *Marshaller { m.indent = v; return m }
 func (m *Marshaller) WithCompact(compact bool) *Marshaller { m.compact = compact; return m }
 
 // Marshal provides a stable marshalling across all ExtJSON modes
-// "stable" here means that resulting []byte will always be the same (order of keys inside won't change)
+// "stable" here means that resulting []byte will always be the same (order of keys inside won't change).
 func (m *Marshaller) Marshal(result any) ([]byte, error) {
 	// For better error handling, let's detect when result is a slice
 	// As bson.MarshalExtJson can only handle single objects
@@ -71,7 +72,7 @@ func (m *Marshaller) Marshal(result any) ([]byte, error) {
 		t := reflect.TypeOf(result)
 		k := reflect.TypeOf(result).Kind()
 		if k == reflect.Slice || k == reflect.Ptr && t.Elem().Kind() == reflect.Slice {
-			return nil, fmt.Errorf("can't marshal array yet")
+			return nil, errors.New("can't marshal array yet")
 		}
 	}
 
@@ -135,7 +136,7 @@ func (m *Marshaller) marshalShellExtJSON(v any) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// marshalShellValue recursively marshals values to Shell format
+// marshalShellValue recursively marshals values to Shell format.
 func (m *Marshaller) marshalShellValue(v any, buf *bytes.Buffer, indent int) error {
 	if v == nil {
 		buf.WriteString("null")
@@ -283,7 +284,7 @@ func (m *Marshaller) marshalShellValue(v any, buf *bytes.Buffer, indent int) err
 					buf.WriteString(indentStr)
 				}
 				buf.WriteString(`"`)
-				buf.WriteString(fmt.Sprintf("%v", key.Interface()))
+				fmt.Fprintf(buf, "%v", key.Interface())
 				buf.WriteString(`"`)
 				if m.compact {
 					buf.WriteString(":")
@@ -307,7 +308,7 @@ func (m *Marshaller) marshalShellValue(v any, buf *bytes.Buffer, indent int) err
 				buf.WriteString("\n")
 			}
 			indentStr := strings.Repeat("  ", indent+1)
-			for i := 0; i < rv.Len(); i++ {
+			for i := range rv.Len() {
 				if i > 0 {
 					buf.WriteString(",")
 					if !m.compact {
@@ -330,7 +331,7 @@ func (m *Marshaller) marshalShellValue(v any, buf *bytes.Buffer, indent int) err
 
 		default:
 			// Fallback to string representation
-			buf.WriteString(fmt.Sprintf("%v", v))
+			fmt.Fprintf(buf, "%v", v)
 		}
 	}
 
