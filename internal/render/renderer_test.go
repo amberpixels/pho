@@ -1,4 +1,4 @@
-package render
+package render_test
 
 import (
 	"bytes"
@@ -6,6 +6,8 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"pho/internal/render"
 
 	"go.mongodb.org/mongo-driver/bson"
 )
@@ -40,13 +42,13 @@ func (c *mockCursor) Decode(v any) error {
 func TestNewRenderer(t *testing.T) {
 	tests := []struct {
 		name     string
-		options  []Option
-		expected *Configuration
+		options  []render.Option
+		expected *render.Configuration
 	}{
 		{
 			name:    "no options",
 			options: nil,
-			expected: &Configuration{
+			expected: &render.Configuration{
 				ShowLineNumbers: false,
 				AsValidJSON:     false,
 				ExtJSONMode:     "",
@@ -57,8 +59,8 @@ func TestNewRenderer(t *testing.T) {
 		},
 		{
 			name:    "with options",
-			options: []Option{WithShowLineNumbers(true), WithAsValidJSON(true)},
-			expected: &Configuration{
+			options: []render.Option{render.WithShowLineNumbers(true), render.WithAsValidJSON(true)},
+			expected: &render.Configuration{
 				ShowLineNumbers: true,
 				AsValidJSON:     true,
 				ExtJSONMode:     "",
@@ -71,10 +73,10 @@ func TestNewRenderer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			renderer := NewRenderer(tt.options...)
+			renderer := render.NewRenderer(tt.options...)
 
 			if renderer == nil {
-				t.Fatal("NewRenderer() returned nil")
+				t.Fatal("render.NewRenderer() returned nil")
 			}
 
 			config := renderer.GetConfiguration()
@@ -93,7 +95,7 @@ func TestNewRenderer(t *testing.T) {
 }
 
 func TestRenderer_GetConfiguration(t *testing.T) {
-	renderer := NewRenderer(WithShowLineNumbers(true))
+	renderer := render.NewRenderer(render.WithShowLineNumbers(true))
 	config := renderer.GetConfiguration()
 
 	if config == nil {
@@ -108,46 +110,46 @@ func TestRenderer_GetConfiguration(t *testing.T) {
 func TestRenderer_FormatLineNumber(t *testing.T) {
 	tests := []struct {
 		name        string
-		options     []Option
+		options     []render.Option
 		lineNumber  int
 		expected    string
 		shouldBeNil bool
 	}{
 		{
 			name:        "show line numbers enabled",
-			options:     []Option{WithShowLineNumbers(true)},
+			options:     []render.Option{render.WithShowLineNumbers(true)},
 			lineNumber:  5,
 			expected:    "/* 5 */\n",
 			shouldBeNil: false,
 		},
 		{
 			name:        "show line numbers disabled",
-			options:     []Option{WithShowLineNumbers(false)},
+			options:     []render.Option{render.WithShowLineNumbers(false)},
 			lineNumber:  5,
 			shouldBeNil: true,
 		},
 		{
 			name:        "valid JSON mode disables line numbers",
-			options:     []Option{WithShowLineNumbers(true), WithAsValidJSON(true)},
+			options:     []render.Option{render.WithShowLineNumbers(true), render.WithAsValidJSON(true)},
 			lineNumber:  5,
 			shouldBeNil: true,
 		},
 		{
 			name:        "minimized JSON disables line numbers",
-			options:     []Option{WithShowLineNumbers(true), WithMinimizedJSON(true)},
+			options:     []render.Option{render.WithShowLineNumbers(true), render.WithMinimizedJSON(true)},
 			lineNumber:  5,
 			shouldBeNil: true,
 		},
 		{
 			name:        "line number zero",
-			options:     []Option{WithShowLineNumbers(true)},
+			options:     []render.Option{render.WithShowLineNumbers(true)},
 			lineNumber:  0,
 			expected:    "/* 0 */\n",
 			shouldBeNil: false,
 		},
 		{
 			name:        "negative line number",
-			options:     []Option{WithShowLineNumbers(true)},
+			options:     []render.Option{render.WithShowLineNumbers(true)},
 			lineNumber:  -1,
 			expected:    "/* -1 */\n",
 			shouldBeNil: false,
@@ -156,7 +158,7 @@ func TestRenderer_FormatLineNumber(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			renderer := NewRenderer(tt.options...)
+			renderer := render.NewRenderer(tt.options...)
 			result := renderer.FormatLineNumber(tt.lineNumber)
 
 			if tt.shouldBeNil {
@@ -179,56 +181,74 @@ func TestRenderer_FormatLineNumber(t *testing.T) {
 func TestRenderer_FormatResult(t *testing.T) {
 	tests := []struct {
 		name        string
-		options     []Option
+		options     []render.Option
 		input       bson.M
 		wantErr     bool
 		wantContain string
 	}{
 		{
-			name:        "canonical non-compact",
-			options:     []Option{WithExtJSONMode(ExtJSONModes.Canonical), WithCompactJSON(false)},
+			name: "canonical non-compact",
+			options: []render.Option{
+				render.WithExtJSONMode(render.ExtJSONModes.Canonical),
+				render.WithCompactJSON(false),
+			},
 			input:       bson.M{"name": "test"},
 			wantErr:     false,
 			wantContain: "name",
 		},
 		{
-			name:        "canonical compact",
-			options:     []Option{WithExtJSONMode(ExtJSONModes.Canonical), WithCompactJSON(true)},
+			name: "canonical compact",
+			options: []render.Option{
+				render.WithExtJSONMode(render.ExtJSONModes.Canonical),
+				render.WithCompactJSON(true),
+			},
 			input:       bson.M{"name": "test"},
 			wantErr:     false,
 			wantContain: "name",
 		},
 		{
-			name:        "relaxed non-compact",
-			options:     []Option{WithExtJSONMode(ExtJSONModes.Relaxed), WithCompactJSON(false)},
+			name: "relaxed non-compact",
+			options: []render.Option{
+				render.WithExtJSONMode(render.ExtJSONModes.Relaxed),
+				render.WithCompactJSON(false),
+			},
 			input:       bson.M{"name": "test"},
 			wantErr:     false,
 			wantContain: "name",
 		},
 		{
-			name:        "relaxed compact",
-			options:     []Option{WithExtJSONMode(ExtJSONModes.Relaxed), WithCompactJSON(true)},
+			name: "relaxed compact",
+			options: []render.Option{
+				render.WithExtJSONMode(render.ExtJSONModes.Relaxed),
+				render.WithCompactJSON(true),
+			},
 			input:       bson.M{"name": "test"},
 			wantErr:     false,
 			wantContain: "name",
 		},
 		{
 			name:        "shell mode",
-			options:     []Option{WithExtJSONMode(ExtJSONModes.Shell)},
+			options:     []render.Option{render.WithExtJSONMode(render.ExtJSONModes.Shell)},
 			input:       bson.M{"name": "test"},
 			wantErr:     false,
 			wantContain: "name",
 		},
 		{
-			name:        "with valid JSON flag",
-			options:     []Option{WithExtJSONMode(ExtJSONModes.Relaxed), WithAsValidJSON(true)},
+			name: "with valid JSON flag",
+			options: []render.Option{
+				render.WithExtJSONMode(render.ExtJSONModes.Relaxed),
+				render.WithAsValidJSON(true),
+			},
 			input:       bson.M{"name": "test"},
 			wantErr:     false,
 			wantContain: ",", // Should append comma for valid JSON
 		},
 		{
-			name:        "minimized JSON",
-			options:     []Option{WithExtJSONMode(ExtJSONModes.Relaxed), WithMinimizedJSON(true)},
+			name: "minimized JSON",
+			options: []render.Option{
+				render.WithExtJSONMode(render.ExtJSONModes.Relaxed),
+				render.WithMinimizedJSON(true),
+			},
 			input:       bson.M{"name": "test"},
 			wantErr:     false,
 			wantContain: "name",
@@ -237,7 +257,7 @@ func TestRenderer_FormatResult(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			renderer := NewRenderer(tt.options...)
+			renderer := render.NewRenderer(tt.options...)
 			result, err := renderer.FormatResult(tt.input)
 
 			if (err != nil) != tt.wantErr {
@@ -261,9 +281,9 @@ func TestRenderer_FormatResult(t *testing.T) {
 
 func TestRenderer_FormatResult_IgnoreFailures(t *testing.T) {
 	// Test Shell mode with IgnoreFailures enabled - should work now that Shell mode is implemented
-	renderer := NewRenderer(
-		WithExtJSONMode(ExtJSONModes.Shell),
-		WithIgnoreFailures(true),
+	renderer := render.NewRenderer(
+		render.WithExtJSONMode(render.ExtJSONModes.Shell),
+		render.WithIgnoreFailures(true),
 	)
 
 	result, err := renderer.FormatResult(bson.M{"name": "test"})
@@ -286,28 +306,28 @@ func TestRenderer_FormatResult_IgnoreFailures(t *testing.T) {
 func TestRenderer_Format(t *testing.T) {
 	tests := []struct {
 		name    string
-		options []Option
+		options []render.Option
 		docs    []bson.M
 		wantErr bool
 		checkFn func(string) bool
 	}{
 		{
 			name:    "empty cursor",
-			options: []Option{WithExtJSONMode(ExtJSONModes.Relaxed)},
+			options: []render.Option{render.WithExtJSONMode(render.ExtJSONModes.Relaxed)},
 			docs:    []bson.M{},
 			wantErr: false,
 			checkFn: func(output string) bool { return output == "" },
 		},
 		{
 			name:    "single document",
-			options: []Option{WithExtJSONMode(ExtJSONModes.Relaxed)},
+			options: []render.Option{render.WithExtJSONMode(render.ExtJSONModes.Relaxed)},
 			docs:    []bson.M{{"name": "test"}},
 			wantErr: false,
 			checkFn: func(output string) bool { return strings.Contains(output, "name") },
 		},
 		{
 			name:    "multiple documents",
-			options: []Option{WithExtJSONMode(ExtJSONModes.Relaxed)},
+			options: []render.Option{render.WithExtJSONMode(render.ExtJSONModes.Relaxed)},
 			docs:    []bson.M{{"name": "test1"}, {"name": "test2"}},
 			wantErr: false,
 			checkFn: func(output string) bool {
@@ -315,8 +335,11 @@ func TestRenderer_Format(t *testing.T) {
 			},
 		},
 		{
-			name:    "with line numbers",
-			options: []Option{WithExtJSONMode(ExtJSONModes.Relaxed), WithShowLineNumbers(true)},
+			name: "with line numbers",
+			options: []render.Option{
+				render.WithExtJSONMode(render.ExtJSONModes.Relaxed),
+				render.WithShowLineNumbers(true),
+			},
 			docs:    []bson.M{{"name": "test"}},
 			wantErr: false,
 			checkFn: func(output string) bool {
@@ -325,14 +348,17 @@ func TestRenderer_Format(t *testing.T) {
 		},
 		{
 			name:    "shell mode works",
-			options: []Option{WithExtJSONMode(ExtJSONModes.Shell)},
+			options: []render.Option{render.WithExtJSONMode(render.ExtJSONModes.Shell)},
 			docs:    []bson.M{{"name": "test"}},
 			wantErr: false,
 			checkFn: func(output string) bool { return strings.Contains(output, "name") },
 		},
 		{
-			name:    "shell mode with ignore failures",
-			options: []Option{WithExtJSONMode(ExtJSONModes.Shell), WithIgnoreFailures(true)},
+			name: "shell mode with ignore failures",
+			options: []render.Option{
+				render.WithExtJSONMode(render.ExtJSONModes.Shell),
+				render.WithIgnoreFailures(true),
+			},
 			docs:    []bson.M{{"name": "test"}},
 			wantErr: false,
 			checkFn: func(output string) bool { return strings.Contains(output, "name") }, // Should contain the document
@@ -341,7 +367,7 @@ func TestRenderer_Format(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			renderer := NewRenderer(tt.options...)
+			renderer := render.NewRenderer(tt.options...)
 			cursor := newMockCursor(tt.docs)
 			ctx := context.Background()
 
@@ -380,26 +406,29 @@ func (c *errorCursor) Decode(_ any) error {
 func TestRenderer_Format_DecodeError(t *testing.T) {
 	tests := []struct {
 		name          string
-		options       []Option
+		options       []render.Option
 		expectError   bool
 		errorContains string
 	}{
 		{
 			name:          "decode error without ignore failures",
-			options:       []Option{WithExtJSONMode(ExtJSONModes.Relaxed)},
+			options:       []render.Option{render.WithExtJSONMode(render.ExtJSONModes.Relaxed)},
 			expectError:   true,
 			errorContains: "failed on decoding line",
 		},
 		{
-			name:        "decode error with ignore failures",
-			options:     []Option{WithExtJSONMode(ExtJSONModes.Relaxed), WithIgnoreFailures(true)},
+			name: "decode error with ignore failures",
+			options: []render.Option{
+				render.WithExtJSONMode(render.ExtJSONModes.Relaxed),
+				render.WithIgnoreFailures(true),
+			},
 			expectError: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			renderer := NewRenderer(tt.options...)
+			renderer := render.NewRenderer(tt.options...)
 			cursor := &errorCursor{}
 			ctx := context.Background()
 
@@ -430,26 +459,29 @@ func (w *writeErrorWriter) Write(_ []byte) (int, error) {
 func TestRenderer_Format_WriteError(t *testing.T) {
 	tests := []struct {
 		name          string
-		options       []Option
+		options       []render.Option
 		expectError   bool
 		errorContains string
 	}{
 		{
 			name:          "write error without ignore failures",
-			options:       []Option{WithExtJSONMode(ExtJSONModes.Relaxed)},
+			options:       []render.Option{render.WithExtJSONMode(render.ExtJSONModes.Relaxed)},
 			expectError:   true,
 			errorContains: "failed on writing a line",
 		},
 		{
-			name:        "write error with ignore failures",
-			options:     []Option{WithExtJSONMode(ExtJSONModes.Relaxed), WithIgnoreFailures(true)},
+			name: "write error with ignore failures",
+			options: []render.Option{
+				render.WithExtJSONMode(render.ExtJSONModes.Relaxed),
+				render.WithIgnoreFailures(true),
+			},
 			expectError: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			renderer := NewRenderer(tt.options...)
+			renderer := render.NewRenderer(tt.options...)
 			cursor := newMockCursor([]bson.M{{"name": "test"}})
 			ctx := context.Background()
 
@@ -471,7 +503,7 @@ func TestRenderer_Format_WriteError(t *testing.T) {
 }
 
 func TestRenderer_Format_ContextCancellation(_ *testing.T) {
-	renderer := NewRenderer(WithExtJSONMode(ExtJSONModes.Relaxed))
+	renderer := render.NewRenderer(render.WithExtJSONMode(render.ExtJSONModes.Relaxed))
 	cursor := newMockCursor([]bson.M{{"name": "test"}})
 
 	// Create a cancelled context
@@ -485,28 +517,28 @@ func TestRenderer_Format_ContextCancellation(_ *testing.T) {
 }
 
 func TestExtJSONMode_TypeSafety(t *testing.T) {
-	// Test that ExtJSONMode is a string type
-	var mode ExtJSONMode = "custom"
+	// Test that render.ExtJSONMode is a string type
+	var mode render.ExtJSONMode = "custom"
 	if string(mode) != "custom" {
-		t.Errorf("ExtJSONMode should be string-based, got %T", mode)
+		t.Errorf("render.ExtJSONMode should be string-based, got %T", mode)
 	}
 
 	// Test assignment from constants
-	mode = ExtJSONModes.Canonical
+	mode = render.ExtJSONModes.Canonical
 	if mode != "canonical" {
-		t.Errorf("ExtJSONModes.Canonical = %v, want canonical", mode)
+		t.Errorf("render.ExtJSONModes.Canonical = %v, want canonical", mode)
 	}
 }
 
 func TestRenderer_comprehensive(t *testing.T) {
 	// Test a comprehensive configuration
-	renderer := NewRenderer(
-		WithShowLineNumbers(true),
-		WithAsValidJSON(true),
-		WithExtJSONMode(ExtJSONModes.Canonical),
-		WithCompactJSON(false),
-		WithMinimizedJSON(false),
-		WithIgnoreFailures(false),
+	renderer := render.NewRenderer(
+		render.WithShowLineNumbers(true),
+		render.WithAsValidJSON(true),
+		render.WithExtJSONMode(render.ExtJSONModes.Canonical),
+		render.WithCompactJSON(false),
+		render.WithMinimizedJSON(false),
+		render.WithIgnoreFailures(false),
 	)
 
 	// Verify configuration
@@ -517,8 +549,8 @@ func TestRenderer_comprehensive(t *testing.T) {
 	if !config.AsValidJSON {
 		t.Error("Expected AsValidJSON to be true")
 	}
-	if config.ExtJSONMode != ExtJSONModes.Canonical {
-		t.Errorf("Expected ExtJSONMode to be %v, got %v", ExtJSONModes.Canonical, config.ExtJSONMode)
+	if config.ExtJSONMode != render.ExtJSONModes.Canonical {
+		t.Errorf("Expected render.ExtJSONMode to be %v, got %v", render.ExtJSONModes.Canonical, config.ExtJSONMode)
 	}
 
 	// Test line number formatting (should be nil due to AsValidJSON)

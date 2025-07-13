@@ -19,14 +19,16 @@ func NewMongoClientRestorer(dbCollection *mongo.Collection) *MongoClientRestorer
 	return &MongoClientRestorer{dbCollection}
 }
 
-func (b *MongoClientRestorer) Build(c *diff.Change) (func(ctx context.Context) error, error) {
+func (r *MongoClientRestorer) GetDBCollection() *mongo.Collection { return r.dbCollection }
+
+func (r *MongoClientRestorer) Build(c *diff.Change) (func(ctx context.Context) error, error) {
 	if c == nil {
 		return nil, errors.New("change cannot be nil")
 	}
 	if c.IdentifiedBy == "" || c.IdentifierValue == "" {
 		return nil, errors.New("change identifiedBy+identifierValue are required fields")
 	}
-	if b.dbCollection == nil {
+	if r.dbCollection == nil {
 		return nil, errors.New("connected db collection is required")
 	}
 
@@ -43,7 +45,7 @@ func (b *MongoClientRestorer) Build(c *diff.Change) (func(ctx context.Context) e
 
 			filter := bson.M{c.IdentifiedBy: c.IdentifierValue}
 			update := bson.M{"$set": dataClone}
-			result, err := b.dbCollection.UpdateOne(ctx, filter, update)
+			result, err := r.dbCollection.UpdateOne(ctx, filter, update)
 			if err != nil {
 				return fmt.Errorf("mongo.UpdateOne() failed: %w", err)
 			}
@@ -62,7 +64,7 @@ func (b *MongoClientRestorer) Build(c *diff.Change) (func(ctx context.Context) e
 				return errors.New("added action requires a doc")
 			}
 
-			_, err := b.dbCollection.InsertOne(ctx, c.Data)
+			_, err := r.dbCollection.InsertOne(ctx, c.Data)
 			if err != nil {
 				return fmt.Errorf("mongo.InsertOne() failed: %w", err)
 			}
@@ -71,7 +73,7 @@ func (b *MongoClientRestorer) Build(c *diff.Change) (func(ctx context.Context) e
 
 		case diff.ActionDeleted:
 			filter := bson.M{c.IdentifiedBy: c.IdentifierValue}
-			result, err := b.dbCollection.DeleteOne(ctx, filter)
+			result, err := r.dbCollection.DeleteOne(ctx, filter)
 			if err != nil {
 				return fmt.Errorf("mongo.DeleteOne() failed: %w", err)
 			}

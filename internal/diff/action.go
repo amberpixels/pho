@@ -2,10 +2,10 @@ package diff
 
 import "fmt"
 
-// Action represents the type of change applied to a document
+// Action represents the type of change applied to a document.
 type Action uint8
 
-// Action constants using iota for Go-idiomatic enum pattern
+// Action constants using iota for Go-idiomatic enum pattern.
 const (
 	ActionNoop Action = iota
 	ActionUpdated
@@ -13,7 +13,7 @@ const (
 	ActionAdded
 )
 
-// String returns the string representation of the Action
+// String returns the string representation of the Action.
 func (a Action) String() string {
 	switch a {
 	case ActionNoop:
@@ -29,22 +29,22 @@ func (a Action) String() string {
 	}
 }
 
-// IsValid returns true if the Action value is valid
+// IsValid returns true if the Action value is valid.
 func (a Action) IsValid() bool {
 	return a <= ActionAdded
 }
 
-// IsEffective returns true if the Action represents an actual change
+// IsEffective returns true if the Action represents an actual change.
 func (a Action) IsEffective() bool {
 	return a != ActionNoop
 }
 
-// MarshalText implements encoding.TextMarshaler for JSON/YAML serialization
+// MarshalText implements encoding.TextMarshaler for JSON/YAML serialization.
 func (a Action) MarshalText() ([]byte, error) {
 	return []byte(a.String()), nil
 }
 
-// UnmarshalText implements encoding.TextUnmarshaler for JSON/YAML deserialization
+// UnmarshalText implements encoding.TextUnmarshaler for JSON/YAML deserialization.
 func (a *Action) UnmarshalText(text []byte) error {
 	switch string(text) {
 	case "NOOP":
@@ -61,7 +61,7 @@ func (a *Action) UnmarshalText(text []byte) error {
 	return nil
 }
 
-// ParseAction parses a string into an Action
+// ParseAction parses a string into an Action.
 func ParseAction(s string) (Action, error) {
 	var a Action
 	err := a.UnmarshalText([]byte(s))

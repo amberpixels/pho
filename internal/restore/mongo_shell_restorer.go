@@ -18,8 +18,11 @@ func NewMongoShellRestorer(collectionName string) *MongoShellRestorer {
 	return &MongoShellRestorer{collectionName}
 }
 
+// GetCollectionName returns collection name.
+func (r *MongoShellRestorer) GetCollectionName() string { return r.collectionName }
+
 // Build builds a shell command for the given change.
-func (b *MongoShellRestorer) Build(c *diff.Change) (string, error) {
+func (r *MongoShellRestorer) Build(c *diff.Change) (string, error) {
 	if c == nil {
 		return "", errors.New("change cannot be nil")
 	}
@@ -45,7 +48,7 @@ func (b *MongoShellRestorer) Build(c *diff.Change) (string, error) {
 		}
 
 		return fmt.Sprintf(`db.getCollection("%s").updateOne({%s:%v},{$set:%s});`,
-			b.collectionName,
+			r.collectionName,
 			c.IdentifiedBy, c.IdentifierValue,
 			marshalledData,
 		), nil
@@ -60,12 +63,12 @@ func (b *MongoShellRestorer) Build(c *diff.Change) (string, error) {
 		}
 
 		return fmt.Sprintf(`db.getCollection("%s").insertOne(%s);`,
-			b.collectionName,
+			r.collectionName,
 			marshalledData,
 		), nil
 	case diff.ActionDeleted:
 		return fmt.Sprintf(`db.getCollection("%s").remove({"%s":%v});`,
-			b.collectionName,
+			r.collectionName,
 			c.IdentifiedBy, c.IdentifierValue,
 		), nil
 	case diff.ActionNoop:

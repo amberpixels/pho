@@ -1,9 +1,10 @@
-package pho
+package pho_test
 
 import (
 	"context"
 	"os"
 	"path/filepath"
+	"pho/internal/pho"
 	"testing"
 	"time"
 
@@ -11,10 +12,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var phoDir = pho.GetPhoDir()
+
 func TestSessionMetadata_String(t *testing.T) {
-	session := &SessionMetadata{
+	session := &pho.SessionMetadata{
 		Created: time.Date(2025, 1, 11, 14, 30, 0, 0, time.UTC),
-		QueryParams: QueryParameters{
+		QueryParams: pho.QueryParameters{
 			Database:   "testdb",
 			Collection: "users",
 			Query:      `{"active": true}`,
@@ -28,7 +31,7 @@ func TestSessionMetadata_String(t *testing.T) {
 
 func TestSessionMetadata_Age(t *testing.T) {
 	now := time.Now()
-	session := &SessionMetadata{
+	session := &pho.SessionMetadata{
 		Created: now.Add(-1 * time.Hour),
 	}
 
@@ -41,10 +44,10 @@ func TestApp_SaveAndLoadSession(t *testing.T) {
 	tempDir := t.TempDir()
 	t.Chdir(tempDir)
 
-	app := NewApp()
+	app := pho.NewApp()
 	ctx := context.Background()
 
-	queryParams := QueryParameters{
+	queryParams := pho.QueryParameters{
 		URI:        "mongodb://localhost:27017",
 		Database:   "testdb",
 		Collection: "users",
@@ -59,7 +62,7 @@ func TestApp_SaveAndLoadSession(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify session file exists
-	sessionPath := filepath.Join(phoDir, phoSessionFile)
+	sessionPath := filepath.Join(phoDir, pho.GetPhoSessionFile())
 	assert.FileExists(t, sessionPath)
 
 	// Test loading session
@@ -67,7 +70,7 @@ func TestApp_SaveAndLoadSession(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, session)
 
-	assert.Equal(t, SessionStatusActive, session.Status)
+	assert.Equal(t, pho.SessionStatusActive, session.Status)
 	assert.Equal(t, queryParams.Database, session.QueryParams.Database)
 	assert.Equal(t, queryParams.Collection, session.QueryParams.Collection)
 	assert.Equal(t, queryParams.Query, session.QueryParams.Query)
@@ -81,7 +84,7 @@ func TestApp_LoadSession_NoSession(t *testing.T) {
 	tempDir := t.TempDir()
 	t.Chdir(tempDir)
 
-	app := NewApp()
+	app := pho.NewApp()
 	ctx := context.Background()
 
 	session, err := app.LoadSession(ctx)
@@ -94,11 +97,11 @@ func TestApp_ClearSession(t *testing.T) {
 	tempDir := t.TempDir()
 	t.Chdir(tempDir)
 
-	app := NewApp()
+	app := pho.NewApp()
 	ctx := context.Background()
 
 	// Create a session first
-	queryParams := QueryParameters{
+	queryParams := pho.QueryParameters{
 		Database:   "testdb",
 		Collection: "users",
 		Query:      "{}",
@@ -108,7 +111,7 @@ func TestApp_ClearSession(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify session exists
-	sessionPath := filepath.Join(phoDir, phoSessionFile)
+	sessionPath := filepath.Join(phoDir, pho.GetPhoSessionFile())
 	assert.FileExists(t, sessionPath)
 
 	// Clear session
@@ -123,7 +126,7 @@ func TestApp_HasActiveSession(t *testing.T) {
 	tempDir := t.TempDir()
 	t.Chdir(tempDir)
 
-	app := NewApp()
+	app := pho.NewApp()
 	ctx := context.Background()
 
 	// Test no session
@@ -133,7 +136,7 @@ func TestApp_HasActiveSession(t *testing.T) {
 	assert.Nil(t, session)
 
 	// Create session
-	queryParams := QueryParameters{
+	queryParams := pho.QueryParameters{
 		Database:   "testdb",
 		Collection: "users",
 		Query:      "{}",
@@ -154,16 +157,16 @@ func TestApp_UpdateSessionStatus(t *testing.T) {
 	tempDir := t.TempDir()
 	t.Chdir(tempDir)
 
-	app := NewApp()
+	app := pho.NewApp()
 	ctx := context.Background()
 
 	// Test updating status with no session
-	err := app.UpdateSessionStatus(ctx, SessionStatusModified)
+	err := app.UpdateSessionStatus(ctx, pho.SessionStatusModified)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no active session found")
 
 	// Create session
-	queryParams := QueryParameters{
+	queryParams := pho.QueryParameters{
 		Database:   "testdb",
 		Collection: "users",
 		Query:      "{}",
@@ -173,20 +176,20 @@ func TestApp_UpdateSessionStatus(t *testing.T) {
 	require.NoError(t, err)
 
 	// Update status
-	err = app.UpdateSessionStatus(ctx, SessionStatusModified)
+	err = app.UpdateSessionStatus(ctx, pho.SessionStatusModified)
 	require.NoError(t, err)
 
 	// Verify status was updated
 	session, err := app.LoadSession(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, SessionStatusModified, session.Status)
+	assert.Equal(t, pho.SessionStatusModified, session.Status)
 }
 
 func TestApp_ValidateSession(t *testing.T) {
 	tempDir := t.TempDir()
 	t.Chdir(tempDir)
 
-	app := NewApp()
+	app := pho.NewApp()
 	ctx := context.Background()
 
 	// Test with nil session
@@ -199,7 +202,7 @@ func TestApp_ValidateSession(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(phoDir, "_dump.json"), []byte("{}"), 0644))
 	require.NoError(t, os.WriteFile(filepath.Join(phoDir, "_meta"), []byte("test"), 0644))
 
-	session := &SessionMetadata{
+	session := &pho.SessionMetadata{
 		DumpFile: "_dump.json",
 		MetaFile: "_meta",
 	}

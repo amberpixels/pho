@@ -1,4 +1,4 @@
-package restore
+package restore_test
 
 import (
 	"errors"
@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"pho/internal/diff"
+	"pho/internal/restore"
 
 	"go.mongodb.org/mongo-driver/bson"
 )
@@ -35,21 +36,21 @@ func TestNewMongoShellRestorer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			restorer := NewMongoShellRestorer(tt.collectionName)
+			restorer := restore.NewMongoShellRestorer(tt.collectionName)
 
 			if restorer == nil {
 				t.Fatal("NewMongoShellRestorer() returned nil")
 			}
 
-			if restorer.collectionName != tt.collectionName {
-				t.Errorf("collectionName = %v, want %v", restorer.collectionName, tt.collectionName)
+			if restorer.GetCollectionName() != tt.collectionName {
+				t.Errorf("collectionName = %v, want %v", restorer.GetCollectionName(), tt.collectionName)
 			}
 		})
 	}
 }
 
 func TestMongoShellRestorer_Build_ValidationErrors(t *testing.T) {
-	restorer := NewMongoShellRestorer("testcoll")
+	restorer := restore.NewMongoShellRestorer("testcoll")
 
 	tests := []struct {
 		name          string
@@ -103,7 +104,7 @@ func TestMongoShellRestorer_Build_ValidationErrors(t *testing.T) {
 }
 
 func TestMongoShellRestorer_Build_UpdateAction(t *testing.T) {
-	restorer := NewMongoShellRestorer("users")
+	restorer := restore.NewMongoShellRestorer("users")
 
 	tests := []struct {
 		name          string
@@ -213,7 +214,7 @@ func TestMongoShellRestorer_Build_UpdateAction(t *testing.T) {
 }
 
 func TestMongoShellRestorer_Build_AddAction(t *testing.T) {
-	restorer := NewMongoShellRestorer("products")
+	restorer := restore.NewMongoShellRestorer("products")
 
 	tests := []struct {
 		name         string
@@ -282,7 +283,7 @@ func TestMongoShellRestorer_Build_AddAction(t *testing.T) {
 }
 
 func TestMongoShellRestorer_Build_DeleteAction(t *testing.T) {
-	restorer := NewMongoShellRestorer("logs")
+	restorer := restore.NewMongoShellRestorer("logs")
 
 	tests := []struct {
 		name         string
@@ -351,7 +352,7 @@ func TestMongoShellRestorer_Build_DeleteAction(t *testing.T) {
 }
 
 func TestMongoShellRestorer_Build_NoopAction(t *testing.T) {
-	restorer := NewMongoShellRestorer("collection")
+	restorer := restore.NewMongoShellRestorer("collection")
 
 	change := &diff.Change{
 		Action:          diff.ActionNoop,
@@ -361,7 +362,7 @@ func TestMongoShellRestorer_Build_NoopAction(t *testing.T) {
 
 	result, err := restorer.Build(change)
 
-	if !errors.Is(err, ErrNoop) {
+	if !errors.Is(err, restore.ErrNoop) {
 		t.Errorf("Build() error = %v, want ErrNoop", err)
 	}
 
@@ -371,7 +372,7 @@ func TestMongoShellRestorer_Build_NoopAction(t *testing.T) {
 }
 
 func TestMongoShellRestorer_Build_InvalidAction(t *testing.T) {
-	restorer := NewMongoShellRestorer("collection")
+	restorer := restore.NewMongoShellRestorer("collection")
 
 	change := &diff.Change{
 		Action:          diff.Action(99), // Invalid action
@@ -419,7 +420,7 @@ func TestMongoShellRestorer_Build_CollectionNameEscaping(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			restorer := NewMongoShellRestorer(tt.collectionName)
+			restorer := restore.NewMongoShellRestorer(tt.collectionName)
 
 			change := &diff.Change{
 				Action:          diff.ActionDeleted,
@@ -442,7 +443,7 @@ func TestMongoShellRestorer_Build_CollectionNameEscaping(t *testing.T) {
 
 func TestMongoShellRestorer_Build_DataCloning(t *testing.T) {
 	// Test that data cloning works and doesn't mutate original
-	restorer := NewMongoShellRestorer("test")
+	restorer := restore.NewMongoShellRestorer("test")
 
 	originalData := bson.M{
 		"_id":  "12345",
@@ -474,7 +475,7 @@ func TestMongoShellRestorer_Build_DataCloning(t *testing.T) {
 }
 
 func TestMongoShellRestorer_Build_ComplexData(t *testing.T) {
-	restorer := NewMongoShellRestorer("complex")
+	restorer := restore.NewMongoShellRestorer("complex")
 
 	change := &diff.Change{
 		Action:          diff.ActionAdded,
@@ -507,7 +508,7 @@ func TestMongoShellRestorer_Build_ComplexData(t *testing.T) {
 }
 
 func TestMongoShellRestorer_Build_EmptyData(t *testing.T) {
-	restorer := NewMongoShellRestorer("test")
+	restorer := restore.NewMongoShellRestorer("test")
 
 	change := &diff.Change{
 		Action:          diff.ActionAdded,

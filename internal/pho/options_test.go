@@ -1,8 +1,9 @@
-package pho
+package pho_test
 
 import (
 	"testing"
 
+	"pho/internal/pho"
 	"pho/internal/render"
 
 	"github.com/stretchr/testify/assert"
@@ -37,11 +38,12 @@ func TestWithURI(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			app := &App{}
-			option := WithURI(tt.uri)
+			app := &pho.App{}
+			option := pho.WithURI(tt.uri)
 			option(app)
 
-			assert.Equal(t, tt.uri, app.uri)
+			ar := pho.AppReflect{App: app}
+			assert.Equal(t, tt.uri, ar.GetURI())
 		})
 	}
 }
@@ -79,11 +81,12 @@ func TestWithDatabase(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			app := &App{}
-			option := WithDatabase(tt.dbName)
+			app := &pho.App{}
+			option := pho.WithDatabase(tt.dbName)
 			option(app)
 
-			assert.Equal(t, tt.dbName, app.dbName)
+			ar := pho.AppReflect{App: app}
+			assert.Equal(t, tt.dbName, ar.GetDBName())
 		})
 	}
 }
@@ -121,11 +124,12 @@ func TestWithCollection(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			app := &App{}
-			option := WithCollection(tt.collectionName)
+			app := &pho.App{}
+			option := pho.WithCollection(tt.collectionName)
 			option(app)
 
-			assert.Equal(t, tt.collectionName, app.collectionName)
+			ar := pho.AppReflect{App: app}
+			assert.Equal(t, tt.collectionName, ar.GetCollectionName())
 		})
 	}
 }
@@ -147,11 +151,12 @@ func TestWithRenderer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			app := &App{}
-			option := WithRenderer(tt.renderer)
+			app := &pho.App{}
+			option := pho.WithRenderer(tt.renderer)
 			option(app)
 
-			assert.Equal(t, tt.renderer, app.render)
+			ar := pho.AppReflect{App: app}
+			assert.Equal(t, tt.renderer, ar.GetRender())
 		})
 	}
 }
@@ -163,103 +168,113 @@ func TestWithRenderer_configured(t *testing.T) {
 		render.WithCompactJSON(false),
 	)
 
-	app := &App{}
-	option := WithRenderer(renderer)
+	app := &pho.App{}
+	option := pho.WithRenderer(renderer)
 	option(app)
 
-	assert.Equal(t, renderer, app.render)
+	ar := pho.AppReflect{App: app}
+	assert.Equal(t, renderer, ar.GetRender())
 
 	// Verify the renderer configuration is preserved
-	assert.True(t, app.render.GetConfiguration().AsValidJSON)
+	assert.True(t, ar.GetRender().GetConfiguration().AsValidJSON)
 }
 
 func TestOptions_chainable(t *testing.T) {
 	// Test that options can be chained together
 	renderer := render.NewRenderer()
 
-	app := NewApp(
-		WithURI("mongodb://localhost:27017"),
-		WithDatabase("testdb"),
-		WithCollection("testcoll"),
-		WithRenderer(renderer),
+	app := pho.NewApp(
+		pho.WithURI("mongodb://localhost:27017"),
+		pho.WithDatabase("testdb"),
+		pho.WithCollection("testcoll"),
+		pho.WithRenderer(renderer),
 	)
 
-	assert.Equal(t, "mongodb://localhost:27017", app.uri)
-	assert.Equal(t, "testdb", app.dbName)
-	assert.Equal(t, "testcoll", app.collectionName)
-	assert.Equal(t, renderer, app.render)
+	ar := pho.AppReflect{App: app}
+	assert.Equal(t, "mongodb://localhost:27017", ar.GetURI())
+	assert.Equal(t, "testdb", ar.GetDBName())
+	assert.Equal(t, "testcoll", ar.GetCollectionName())
+	assert.Equal(t, renderer, ar.GetRender())
 }
 
 func TestOptions_override(t *testing.T) {
 	// Test that later options override earlier ones
-	app := NewApp(
-		WithURI("mongodb://first:27017"),
-		WithURI("mongodb://second:27017"),
-		WithDatabase("firstdb"),
-		WithDatabase("seconddb"),
-		WithCollection("firstcoll"),
-		WithCollection("secondcoll"),
+	app := pho.NewApp(
+		pho.WithURI("mongodb://first:27017"),
+		pho.WithURI("mongodb://second:27017"),
+		pho.WithDatabase("firstdb"),
+		pho.WithDatabase("seconddb"),
+		pho.WithCollection("firstcoll"),
+		pho.WithCollection("secondcoll"),
 	)
 
-	assert.Equal(t, "mongodb://second:27017", app.uri)
-	assert.Equal(t, "seconddb", app.dbName)
-	assert.Equal(t, "secondcoll", app.collectionName)
+	ar := pho.AppReflect{App: app}
+	assert.Equal(t, "mongodb://second:27017", ar.GetURI())
+	assert.Equal(t, "seconddb", ar.GetDBName())
+	assert.Equal(t, "secondcoll", ar.GetCollectionName())
 }
 
 func TestOptions_emptyApp(t *testing.T) {
 	// Test that options work on an empty app
-	var app App
+	var app pho.App
 
-	WithURI("test://uri")(&app)
-	WithDatabase("testdb")(&app)
-	WithCollection("testcoll")(&app)
-	WithRenderer(render.NewRenderer())(&app)
+	pho.WithURI("test://uri")(&app)
+	pho.WithDatabase("testdb")(&app)
+	pho.WithCollection("testcoll")(&app)
+	pho.WithRenderer(render.NewRenderer())(&app)
 
-	assert.Equal(t, "test://uri", app.uri)
-	assert.Equal(t, "testdb", app.dbName)
-	assert.Equal(t, "testcoll", app.collectionName)
-	assert.NotNil(t, app.render)
+	ar := pho.AppReflect{App: &app}
+	assert.Equal(t, "test://uri", ar.GetURI())
+	assert.Equal(t, "testdb", ar.GetDBName())
+	assert.Equal(t, "testcoll", ar.GetCollectionName())
+	assert.NotNil(t, ar.GetRender())
 }
 
 func TestOptions_partialApplication(t *testing.T) {
 	// Test applying only some options
-	app := NewApp(
-		WithURI("mongodb://localhost:27017"),
-		WithDatabase("testdb"),
+	app := pho.NewApp(
+		pho.WithURI("mongodb://localhost:27017"),
+		pho.WithDatabase("testdb"),
 		// Note: no collection or renderer
 	)
 
-	assert.Equal(t, "mongodb://localhost:27017", app.uri)
-	assert.Equal(t, "testdb", app.dbName)
-	assert.Empty(t, app.collectionName)
-	assert.Nil(t, app.render)
+	ar := pho.AppReflect{App: app}
+
+	assert.Equal(t, "mongodb://localhost:27017", ar.GetURI())
+	assert.Equal(t, "testdb", ar.GetDBName())
+	assert.Empty(t, ar.GetCollectionName())
+	assert.Nil(t, ar.GetRender())
 }
 
 func TestOption_typeSignature(t *testing.T) {
 	// Test that Option type works as expected
-	var option = WithURI("test")
+	var option = pho.WithURI("test")
 
-	app := &App{}
+	app := &pho.App{}
 	option(app)
 
-	assert.Equal(t, "test", app.uri)
+	ar := pho.AppReflect{App: app}
+	assert.Equal(t, "test", ar.GetURI())
 }
 
 func TestOptions_orderIndependence(t *testing.T) {
 	// Test that option order doesn't matter (except for overrides)
-	app1 := NewApp(
-		WithURI("mongodb://localhost:27017"),
-		WithDatabase("testdb"),
-		WithCollection("testcoll"),
+	app1 := pho.NewApp(
+		pho.WithURI("mongodb://localhost:27017"),
+		pho.WithDatabase("testdb"),
+		pho.WithCollection("testcoll"),
 	)
 
-	app2 := NewApp(
-		WithCollection("testcoll"),
-		WithDatabase("testdb"),
-		WithURI("mongodb://localhost:27017"),
+	app2 := pho.NewApp(
+		pho.WithCollection("testcoll"),
+		pho.WithDatabase("testdb"),
+		pho.WithURI("mongodb://localhost:27017"),
 	)
 
-	assert.Equal(t, app2.uri, app1.uri)
-	assert.Equal(t, app2.dbName, app1.dbName)
-	assert.Equal(t, app2.collectionName, app1.collectionName)
+	ar1 := pho.AppReflect{App: app1}
+	ar2 := pho.AppReflect{App: app2}
+
+	assert.Equal(t, ar2.GetURI(), ar1.GetURI())
+	assert.Equal(t, ar2.GetDBName(), ar1.GetDBName())
+	assert.Equal(t, ar2.GetCollectionName(), ar1.GetCollectionName())
 }

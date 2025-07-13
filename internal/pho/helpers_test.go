@@ -1,8 +1,10 @@
-package pho
+package pho_test
 
 import (
 	"reflect"
 	"testing"
+
+	"pho/internal/pho"
 
 	"go.mongodb.org/mongo-driver/bson"
 )
@@ -66,7 +68,7 @@ func TestParseQuery(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := parseQuery(tt.queryStr)
+			result, err := pho.ParseQuery(tt.queryStr)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("parseQuery() error = %v, wantErr %v", err, tt.wantErr)
@@ -135,7 +137,7 @@ func TestParseSort(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := parseSort(tt.sortStr)
+			result := pho.ParseSort(tt.sortStr)
 
 			if !reflect.DeepEqual(result, tt.expected) {
 				t.Errorf("parseSort() = %v, want %v", result, tt.expected)
@@ -178,7 +180,7 @@ func TestParseProjection(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := parseProjection(tt.projStr)
+			result := pho.ParseProjection(tt.projStr)
 
 			if !reflect.DeepEqual(result, tt.expected) {
 				t.Errorf("parseProjection() = %v, want %v", result, tt.expected)
@@ -243,7 +245,7 @@ func TestParseSort_EdgeCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := parseSort(tt.sortStr)
+			result := pho.ParseSort(tt.sortStr)
 
 			if !reflect.DeepEqual(result, tt.expected) {
 				t.Errorf("parseSort() = %v, want %v", result, tt.expected)
@@ -256,8 +258,8 @@ func TestParseSort_EdgeCases(t *testing.T) {
 func TestParseProjection_UsesParseSort(t *testing.T) {
 	input := "name,-_id"
 
-	projResult := parseProjection(input)
-	sortResult := parseSort(input)
+	projResult := pho.ParseProjection(input)
+	sortResult := pho.ParseSort(input)
 
 	if !reflect.DeepEqual(projResult, sortResult) {
 		t.Errorf("parseProjection() should use parseSort() internally, but results differ")
