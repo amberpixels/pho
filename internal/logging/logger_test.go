@@ -1,9 +1,11 @@
-package logging
+package logging_test
 
 import (
 	"bytes"
 	"strings"
 	"testing"
+
+	"pho/internal/logging"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -11,13 +13,13 @@ import (
 func TestVerbosityLevel_String(t *testing.T) {
 	tests := []struct {
 		name     string
-		level    VerbosityLevel
+		level    logging.VerbosityLevel
 		expected string
 	}{
-		{"quiet level", LevelQuiet, "quiet"},
-		{"normal level", LevelNormal, "normal"},
-		{"verbose level", LevelVerbose, "verbose"},
-		{"unknown level", VerbosityLevel(99), "unknown"},
+		{"quiet level", logging.LevelQuiet, "quiet"},
+		{"normal level", logging.LevelNormal, "normal"},
+		{"verbose level", logging.LevelVerbose, "verbose"},
+		{"unknown level", logging.VerbosityLevel(99), "unknown"},
 	}
 
 	for _, tt := range tests {
@@ -28,15 +30,15 @@ func TestVerbosityLevel_String(t *testing.T) {
 }
 
 func TestNewLogger(t *testing.T) {
-	logger := NewLogger(LevelVerbose)
+	logger := logging.NewLogger(logging.LevelVerbose)
 	assert.NotNil(t, logger)
-	assert.Equal(t, LevelVerbose, logger.GetLevel())
+	assert.Equal(t, logging.LevelVerbose, logger.GetLevel())
 	assert.True(t, logger.IsVerbose())
 	assert.False(t, logger.IsQuiet())
 }
 
 func TestLogger_SetOutput(t *testing.T) {
-	logger := NewLogger(LevelNormal)
+	logger := logging.NewLogger(logging.LevelNormal)
 	var buf bytes.Buffer
 	logger.SetOutput(&buf)
 
@@ -45,7 +47,7 @@ func TestLogger_SetOutput(t *testing.T) {
 }
 
 func TestLogger_SetErrorOutput(t *testing.T) {
-	logger := NewLogger(LevelNormal)
+	logger := logging.NewLogger(logging.LevelNormal)
 	var buf bytes.Buffer
 	logger.SetErrorOutput(&buf)
 
@@ -54,7 +56,7 @@ func TestLogger_SetErrorOutput(t *testing.T) {
 }
 
 func TestLogger_QuietMode(t *testing.T) {
-	logger := NewLogger(LevelQuiet)
+	logger := logging.NewLogger(logging.LevelQuiet)
 	var outputBuf, errorBuf bytes.Buffer
 	logger.SetOutput(&outputBuf)
 	logger.SetErrorOutput(&errorBuf)
@@ -65,7 +67,7 @@ func TestLogger_QuietMode(t *testing.T) {
 	logger.Progress("progress message")
 	logger.Success("success message")
 	logger.Warning("warning message")
-	
+
 	// These should not appear in output
 	assert.Empty(t, outputBuf.String())
 
@@ -77,7 +79,7 @@ func TestLogger_QuietMode(t *testing.T) {
 }
 
 func TestLogger_NormalMode(t *testing.T) {
-	logger := NewLogger(LevelNormal)
+	logger := logging.NewLogger(logging.LevelNormal)
 	var outputBuf, errorBuf bytes.Buffer
 	logger.SetOutput(&outputBuf)
 	logger.SetErrorOutput(&errorBuf)
@@ -90,13 +92,13 @@ func TestLogger_NormalMode(t *testing.T) {
 	logger.Debug("debug message")
 
 	output := outputBuf.String()
-	
+
 	// Should show info, progress, success, warning
 	assert.Contains(t, output, "info message")
 	assert.Contains(t, output, "progress message")
 	assert.Contains(t, output, "✓ success message")
 	assert.Contains(t, output, "⚠ Warning: warning message")
-	
+
 	// Should NOT show verbose or debug
 	assert.NotContains(t, output, "verbose message")
 	assert.NotContains(t, output, "debug message")
@@ -107,7 +109,7 @@ func TestLogger_NormalMode(t *testing.T) {
 }
 
 func TestLogger_VerboseMode(t *testing.T) {
-	logger := NewLogger(LevelVerbose)
+	logger := logging.NewLogger(logging.LevelVerbose)
 	var outputBuf, errorBuf bytes.Buffer
 	logger.SetOutput(&outputBuf)
 	logger.SetErrorOutput(&errorBuf)
@@ -120,7 +122,7 @@ func TestLogger_VerboseMode(t *testing.T) {
 	logger.Debug("debug message")
 
 	output := outputBuf.String()
-	
+
 	// Should show all messages
 	assert.Contains(t, output, "info message")
 	assert.Contains(t, output, "verbose message")
@@ -135,38 +137,38 @@ func TestLogger_VerboseMode(t *testing.T) {
 
 func TestLogger_IsQuiet(t *testing.T) {
 	tests := []struct {
-		level    VerbosityLevel
+		level    logging.VerbosityLevel
 		expected bool
 	}{
-		{LevelQuiet, true},
-		{LevelNormal, false},
-		{LevelVerbose, false},
+		{logging.LevelQuiet, true},
+		{logging.LevelNormal, false},
+		{logging.LevelVerbose, false},
 	}
 
 	for _, tt := range tests {
-		logger := NewLogger(tt.level)
+		logger := logging.NewLogger(tt.level)
 		assert.Equal(t, tt.expected, logger.IsQuiet())
 	}
 }
 
 func TestLogger_IsVerbose(t *testing.T) {
 	tests := []struct {
-		level    VerbosityLevel
+		level    logging.VerbosityLevel
 		expected bool
 	}{
-		{LevelQuiet, false},
-		{LevelNormal, false},
-		{LevelVerbose, true},
+		{logging.LevelQuiet, false},
+		{logging.LevelNormal, false},
+		{logging.LevelVerbose, true},
 	}
 
 	for _, tt := range tests {
-		logger := NewLogger(tt.level)
+		logger := logging.NewLogger(tt.level)
 		assert.Equal(t, tt.expected, logger.IsVerbose())
 	}
 }
 
 func TestLogger_MessageFormatting(t *testing.T) {
-	logger := NewLogger(LevelVerbose)
+	logger := logging.NewLogger(logging.LevelVerbose)
 	var outputBuf bytes.Buffer
 	logger.SetOutput(&outputBuf)
 

@@ -1,19 +1,20 @@
-package render
+package render_test
 
 import (
+	"pho/internal/render"
 	"testing"
 )
 
 func TestNewConfiguration(t *testing.T) {
 	tests := []struct {
 		name     string
-		options  []Option
-		expected *Configuration
+		options  []render.Option
+		expected *render.Configuration
 	}{
 		{
 			name:    "no options",
 			options: nil,
-			expected: &Configuration{
+			expected: &render.Configuration{
 				ShowLineNumbers: false,
 				AsValidJSON:     false,
 				ExtJSONMode:     "",
@@ -24,8 +25,8 @@ func TestNewConfiguration(t *testing.T) {
 		},
 		{
 			name:    "with show line numbers",
-			options: []Option{WithShowLineNumbers(true)},
-			expected: &Configuration{
+			options: []render.Option{render.WithShowLineNumbers(true)},
+			expected: &render.Configuration{
 				ShowLineNumbers: true,
 				AsValidJSON:     false,
 				ExtJSONMode:     "",
@@ -36,8 +37,8 @@ func TestNewConfiguration(t *testing.T) {
 		},
 		{
 			name:    "with valid JSON",
-			options: []Option{WithAsValidJSON(true)},
-			expected: &Configuration{
+			options: []render.Option{render.WithAsValidJSON(true)},
+			expected: &render.Configuration{
 				ShowLineNumbers: false,
 				AsValidJSON:     true,
 				ExtJSONMode:     "",
@@ -48,11 +49,11 @@ func TestNewConfiguration(t *testing.T) {
 		},
 		{
 			name:    "with ExtJSON mode",
-			options: []Option{WithExtJSONMode(ExtJSONModes.Canonical)},
-			expected: &Configuration{
+			options: []render.Option{render.WithExtJSONMode(render.ExtJSONModes.Canonical)},
+			expected: &render.Configuration{
 				ShowLineNumbers: false,
 				AsValidJSON:     false,
-				ExtJSONMode:     ExtJSONModes.Canonical,
+				ExtJSONMode:     render.ExtJSONModes.Canonical,
 				CompactJSON:     false,
 				MinimizedJSON:   false,
 				IgnoreFailures:  false,
@@ -60,8 +61,8 @@ func TestNewConfiguration(t *testing.T) {
 		},
 		{
 			name:    "with compact JSON",
-			options: []Option{WithCompactJSON(true)},
-			expected: &Configuration{
+			options: []render.Option{render.WithCompactJSON(true)},
+			expected: &render.Configuration{
 				ShowLineNumbers: false,
 				AsValidJSON:     false,
 				ExtJSONMode:     "",
@@ -72,8 +73,8 @@ func TestNewConfiguration(t *testing.T) {
 		},
 		{
 			name:    "with minimized JSON",
-			options: []Option{WithMinimizedJSON(true)},
-			expected: &Configuration{
+			options: []render.Option{render.WithMinimizedJSON(true)},
+			expected: &render.Configuration{
 				ShowLineNumbers: false,
 				AsValidJSON:     false,
 				ExtJSONMode:     "",
@@ -84,8 +85,8 @@ func TestNewConfiguration(t *testing.T) {
 		},
 		{
 			name:    "with ignore failures",
-			options: []Option{WithIgnoreFailures(true)},
-			expected: &Configuration{
+			options: []render.Option{render.WithIgnoreFailures(true)},
+			expected: &render.Configuration{
 				ShowLineNumbers: false,
 				AsValidJSON:     false,
 				ExtJSONMode:     "",
@@ -96,17 +97,17 @@ func TestNewConfiguration(t *testing.T) {
 		},
 		{
 			name: "with multiple options",
-			options: []Option{
-				WithShowLineNumbers(true),
-				WithAsValidJSON(true),
-				WithExtJSONMode(ExtJSONModes.Relaxed),
-				WithCompactJSON(true),
-				WithIgnoreFailures(true),
+			options: []render.Option{
+				render.WithShowLineNumbers(true),
+				render.WithAsValidJSON(true),
+				render.WithExtJSONMode(render.ExtJSONModes.Relaxed),
+				render.WithCompactJSON(true),
+				render.WithIgnoreFailures(true),
 			},
-			expected: &Configuration{
+			expected: &render.Configuration{
 				ShowLineNumbers: true,
 				AsValidJSON:     true,
-				ExtJSONMode:     ExtJSONModes.Relaxed,
+				ExtJSONMode:     render.ExtJSONModes.Relaxed,
 				CompactJSON:     true,
 				MinimizedJSON:   false,
 				IgnoreFailures:  true,
@@ -116,7 +117,7 @@ func TestNewConfiguration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config := NewConfiguration(tt.options...)
+			config := render.NewConfiguration(tt.options...)
 
 			if config.ShowLineNumbers != tt.expected.ShowLineNumbers {
 				t.Errorf("ShowLineNumbers = %v, want %v", config.ShowLineNumbers, tt.expected.ShowLineNumbers)
@@ -141,25 +142,25 @@ func TestNewConfiguration(t *testing.T) {
 }
 
 func TestExtJSONModes(t *testing.T) {
-	if ExtJSONModes.Canonical != "canonical" {
-		t.Errorf("ExtJSONModes.Canonical = %v, want canonical", ExtJSONModes.Canonical)
+	if render.ExtJSONModes.Canonical != "canonical" {
+		t.Errorf("ExtJSONModes.Canonical = %v, want canonical", render.ExtJSONModes.Canonical)
 	}
-	if ExtJSONModes.Relaxed != "relaxed" {
-		t.Errorf("ExtJSONModes.Relaxed = %v, want relaxed", ExtJSONModes.Relaxed)
+	if render.ExtJSONModes.Relaxed != "relaxed" {
+		t.Errorf("ExtJSONModes.Relaxed = %v, want relaxed", render.ExtJSONModes.Relaxed)
 	}
-	if ExtJSONModes.Shell != "shell" {
-		t.Errorf("ExtJSONModes.Shell = %v, want shell", ExtJSONModes.Shell)
+	if render.ExtJSONModes.Shell != "shell" {
+		t.Errorf("ExtJSONModes.Shell = %v, want shell", render.ExtJSONModes.Shell)
 	}
 }
 
 func TestConfiguration_Clone(t *testing.T) {
-	original := NewConfiguration(
-		WithShowLineNumbers(true),
-		WithAsValidJSON(true),
-		WithExtJSONMode(ExtJSONModes.Canonical),
-		WithCompactJSON(true),
-		WithMinimizedJSON(true),
-		WithIgnoreFailures(true),
+	original := render.NewConfiguration(
+		render.WithShowLineNumbers(true),
+		render.WithAsValidJSON(true),
+		render.WithExtJSONMode(render.ExtJSONModes.Canonical),
+		render.WithCompactJSON(true),
+		render.WithMinimizedJSON(true),
+		render.WithIgnoreFailures(true),
 	)
 
 	cloned := original.Clone()
@@ -207,8 +208,8 @@ func TestWithShowLineNumbers(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config := &Configuration{}
-			option := WithShowLineNumbers(tt.value)
+			config := &render.Configuration{}
+			option := render.WithShowLineNumbers(tt.value)
 			option(config)
 
 			if config.ShowLineNumbers != tt.value {
@@ -229,8 +230,8 @@ func TestWithAsValidJSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config := &Configuration{}
-			option := WithAsValidJSON(tt.value)
+			config := &render.Configuration{}
+			option := render.WithAsValidJSON(tt.value)
 			option(config)
 
 			if config.AsValidJSON != tt.value {
@@ -243,18 +244,18 @@ func TestWithAsValidJSON(t *testing.T) {
 func TestWithExtJSONMode(t *testing.T) {
 	tests := []struct {
 		name  string
-		value ExtJSONMode
+		value render.ExtJSONMode
 	}{
-		{"canonical", ExtJSONModes.Canonical},
-		{"relaxed", ExtJSONModes.Relaxed},
-		{"shell", ExtJSONModes.Shell},
+		{"canonical", render.ExtJSONModes.Canonical},
+		{"relaxed", render.ExtJSONModes.Relaxed},
+		{"shell", render.ExtJSONModes.Shell},
 		{"empty", ""},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config := &Configuration{}
-			option := WithExtJSONMode(tt.value)
+			config := &render.Configuration{}
+			option := render.WithExtJSONMode(tt.value)
 			option(config)
 
 			if config.ExtJSONMode != tt.value {
@@ -275,8 +276,8 @@ func TestWithCompactJSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config := &Configuration{}
-			option := WithCompactJSON(tt.value)
+			config := &render.Configuration{}
+			option := render.WithCompactJSON(tt.value)
 			option(config)
 
 			if config.CompactJSON != tt.value {
@@ -297,8 +298,8 @@ func TestWithMinimizedJSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config := &Configuration{}
-			option := WithMinimizedJSON(tt.value)
+			config := &render.Configuration{}
+			option := render.WithMinimizedJSON(tt.value)
 			option(config)
 
 			if config.MinimizedJSON != tt.value {
@@ -319,8 +320,8 @@ func TestWithIgnoreFailures(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config := &Configuration{}
-			option := WithIgnoreFailures(tt.value)
+			config := &render.Configuration{}
+			option := render.WithIgnoreFailures(tt.value)
 			option(config)
 
 			if config.IgnoreFailures != tt.value {
@@ -339,15 +340,15 @@ func TestRoundTripJSON(t *testing.T) {
 	}{
 		{
 			name: "Configuration struct",
-			input: &Configuration{
+			input: &render.Configuration{
 				ShowLineNumbers: true,
 				AsValidJSON:     true,
-				ExtJSONMode:     ExtJSONModes.Canonical,
+				ExtJSONMode:     render.ExtJSONModes.Canonical,
 				CompactJSON:     true,
 				MinimizedJSON:   false,
 				IgnoreFailures:  true,
 			},
-			expected: &Configuration{},
+			expected: &render.Configuration{},
 			wantErr:  false,
 		},
 		{
@@ -362,15 +363,15 @@ func TestRoundTripJSON(t *testing.T) {
 		},
 		{
 			name:     "nil input",
-			input:    (*Configuration)(nil),
-			expected: &Configuration{},
+			input:    (*render.Configuration)(nil),
+			expected: &render.Configuration{},
 			wantErr:  false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := RoundTripJSON(tt.input, tt.expected)
+			err := render.RoundTripJSON(tt.input, tt.expected)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("RoundTripJSON() error = %v, wantErr %v", err, tt.wantErr)
@@ -390,9 +391,9 @@ func TestRoundTripJSON(t *testing.T) {
 func TestRoundTripJSON_InvalidInput(t *testing.T) {
 	// Test with invalid input that can't be marshaled to JSON
 	invalidInput := func() {} // functions can't be marshaled to JSON
-	output := &Configuration{}
+	output := &render.Configuration{}
 
-	err := RoundTripJSON(invalidInput, output)
+	err := render.RoundTripJSON(invalidInput, output)
 	if err == nil {
 		t.Error("RoundTripJSON() expected error for invalid input, got nil")
 	}
@@ -403,7 +404,7 @@ func TestRoundTripJSON_InvalidOutput(t *testing.T) {
 	input := map[string]any{"key": "value"}
 	var output string // string can't hold the map structure
 
-	err := RoundTripJSON(input, &output)
+	err := render.RoundTripJSON(input, &output)
 	if err == nil {
 		t.Error("RoundTripJSON() expected error for type mismatch, got nil")
 	}
@@ -411,13 +412,13 @@ func TestRoundTripJSON_InvalidOutput(t *testing.T) {
 
 func TestOptions_Chaining(t *testing.T) {
 	// Test that options can be chained together
-	config := NewConfiguration(
-		WithShowLineNumbers(true),
-		WithAsValidJSON(true),
-		WithExtJSONMode(ExtJSONModes.Relaxed),
-		WithCompactJSON(true),
-		WithMinimizedJSON(true),
-		WithIgnoreFailures(true),
+	config := render.NewConfiguration(
+		render.WithShowLineNumbers(true),
+		render.WithAsValidJSON(true),
+		render.WithExtJSONMode(render.ExtJSONModes.Relaxed),
+		render.WithCompactJSON(true),
+		render.WithMinimizedJSON(true),
+		render.WithIgnoreFailures(true),
 	)
 
 	if !config.ShowLineNumbers {
@@ -426,8 +427,8 @@ func TestOptions_Chaining(t *testing.T) {
 	if !config.AsValidJSON {
 		t.Error("Expected AsValidJSON to be true")
 	}
-	if config.ExtJSONMode != ExtJSONModes.Relaxed {
-		t.Errorf("Expected ExtJSONMode to be %v, got %v", ExtJSONModes.Relaxed, config.ExtJSONMode)
+	if config.ExtJSONMode != render.ExtJSONModes.Relaxed {
+		t.Errorf("Expected ExtJSONMode to be %v, got %v", render.ExtJSONModes.Relaxed, config.ExtJSONMode)
 	}
 	if !config.CompactJSON {
 		t.Error("Expected CompactJSON to be true")
@@ -442,17 +443,17 @@ func TestOptions_Chaining(t *testing.T) {
 
 func TestOptions_Override(t *testing.T) {
 	// Test that later options override earlier ones
-	config := NewConfiguration(
-		WithShowLineNumbers(false),
-		WithShowLineNumbers(true), // Should override the false
-		WithExtJSONMode(ExtJSONModes.Canonical),
-		WithExtJSONMode(ExtJSONModes.Relaxed), // Should override canonical
+	config := render.NewConfiguration(
+		render.WithShowLineNumbers(false),
+		render.WithShowLineNumbers(true), // Should override the false
+		render.WithExtJSONMode(render.ExtJSONModes.Canonical),
+		render.WithExtJSONMode(render.ExtJSONModes.Relaxed), // Should override canonical
 	)
 
 	if !config.ShowLineNumbers {
 		t.Error("Expected ShowLineNumbers to be true (overridden)")
 	}
-	if config.ExtJSONMode != ExtJSONModes.Relaxed {
-		t.Errorf("Expected ExtJSONMode to be %v (overridden), got %v", ExtJSONModes.Relaxed, config.ExtJSONMode)
+	if config.ExtJSONMode != render.ExtJSONModes.Relaxed {
+		t.Errorf("Expected ExtJSONMode to be %v (overridden), got %v", render.ExtJSONModes.Relaxed, config.ExtJSONMode)
 	}
 }

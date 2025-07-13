@@ -6,7 +6,7 @@ import (
 	"hash"
 )
 
-// CalculateChecksum calculates the checksum for the given data via given hash algorithm
+// CalculateChecksum calculates the checksum for the given data via given hash algorithm.
 func CalculateChecksum(data []byte, hash hash.Hash) (string, error) {
 	// Write the data to the hash object
 	_, err := hash.Write(data)

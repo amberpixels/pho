@@ -1,28 +1,29 @@
-package restore
+package restore_test
 
 import (
 	"strings"
 	"testing"
 
 	"pho/internal/diff"
+	"pho/internal/restore"
 
 	"go.mongodb.org/mongo-driver/bson"
 )
 
 func TestNewMongoClientRestorer(t *testing.T) {
-	restorer := NewMongoClientRestorer(nil)
+	restorer := restore.NewMongoClientRestorer(nil)
 
 	if restorer == nil {
 		t.Fatal("NewMongoClientRestorer() returned nil")
 	}
 
-	if restorer.dbCollection != nil {
+	if restorer.GetDBCollection() != nil {
 		t.Error("Expected dbCollection to be nil when passed nil")
 	}
 }
 
 func TestMongoClientRestorer_Build_ValidationErrors(t *testing.T) {
-	restorer := &MongoClientRestorer{dbCollection: nil}
+	restorer := restore.NewMongoClientRestorer(nil)
 
 	tests := []struct {
 		name          string
@@ -147,7 +148,7 @@ func TestMongoClientRestorer_Build_ActionValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			restorer := &MongoClientRestorer{dbCollection: nil}
+			restorer := restore.NewMongoClientRestorer(nil)
 
 			fn, err := restorer.Build(tt.change)
 
@@ -167,7 +168,7 @@ func TestMongoClientRestorer_ActionLogic(t *testing.T) {
 	// Test the action handling logic without needing real MongoDB connection
 	// We focus on the data validation and preparation logic
 
-	restorer := &MongoClientRestorer{dbCollection: nil}
+	restorer := restore.NewMongoClientRestorer(nil)
 
 	tests := []struct {
 		name          string
@@ -244,7 +245,7 @@ func TestMongoClientRestorer_DataCloning(t *testing.T) {
 		Data:            originalData,
 	}
 
-	restorer := &MongoClientRestorer{dbCollection: nil}
+	restorer := restore.NewMongoClientRestorer(nil)
 
 	// Even though this will fail due to nil collection, we can verify
 	// that the original data structure is not modified
@@ -270,7 +271,7 @@ func TestMongoClientRestorer_DataCloning(t *testing.T) {
 }
 
 func TestMongoClientRestorer_Build_NilChangeHandling(t *testing.T) {
-	restorer := &MongoClientRestorer{dbCollection: nil}
+	restorer := restore.NewMongoClientRestorer(nil)
 
 	_, err := restorer.Build(nil)
 	if err == nil {
@@ -279,7 +280,7 @@ func TestMongoClientRestorer_Build_NilChangeHandling(t *testing.T) {
 }
 
 func TestMongoClientRestorer_Build_EmptyFieldValidation(t *testing.T) {
-	restorer := &MongoClientRestorer{dbCollection: nil}
+	restorer := restore.NewMongoClientRestorer(nil)
 
 	tests := []struct {
 		name      string
@@ -332,7 +333,7 @@ func TestMongoClientRestorer_Build_EmptyFieldValidation(t *testing.T) {
 	}
 }
 
-// Test that we can create execution functions even if we can't execute them
+// Test that we can create execution functions even if we can't execute them.
 func TestMongoClientRestorer_ExecutionFunctionCreation(t *testing.T) {
 	// This test verifies that the Build method returns the correct function signature
 	// even though we can't test execution without a real MongoDB connection
@@ -343,7 +344,7 @@ func TestMongoClientRestorer_ExecutionFunctionCreation(t *testing.T) {
 		IdentifierValue: "test",
 	}
 
-	restorer := &MongoClientRestorer{dbCollection: nil}
+	restorer := restore.NewMongoClientRestorer(nil)
 
 	// This should fail due to nil collection
 	fn, err := restorer.Build(change)
@@ -357,12 +358,12 @@ func TestMongoClientRestorer_ExecutionFunctionCreation(t *testing.T) {
 	}
 }
 
-// Test the function signature requirements
+// Test the function signature requirements.
 func TestMongoClientRestorer_FunctionSignature(t *testing.T) {
 	// Test that the returned function has the correct signature
 	// We can't test execution, but we can verify the function type
 
-	restorer := &MongoClientRestorer{dbCollection: nil}
+	restorer := restore.NewMongoClientRestorer(nil)
 
 	change := &diff.Change{
 		Action:          diff.ActionUpdated,

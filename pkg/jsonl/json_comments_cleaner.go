@@ -9,7 +9,7 @@ import (
 )
 
 // JSONCommentsCleaner is an io.Reader implementation that removes /* */ comments from the input stream.
-// It comes very handy to be a pre-reader to json.Decoder() so we can easily parse .jsonl that include comments
+// It comes very handy to be a pre-reader to json.Decoder() so we can easily parse .jsonl that include comments.
 type JSONCommentsCleaner struct {
 	reader           *bufio.Reader
 	insideComment    bool
@@ -36,7 +36,6 @@ func (cr *JSONCommentsCleaner) Read(p []byte) (int, error) {
 		if errors.Is(err, io.EOF) {
 			break
 		}
-
 	}
 
 	if buf.Len() == 0 {

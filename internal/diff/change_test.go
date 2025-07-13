@@ -1,6 +1,7 @@
-package diff
+package diff_test
 
 import (
+	"pho/internal/diff"
 	"pho/internal/hashing"
 	"testing"
 
@@ -15,7 +16,7 @@ func TestNewChange(t *testing.T) {
 		name            string
 		identifiedBy    string
 		identifierValue any
-		action          Action
+		action          diff.Action
 		data            []bson.M
 		expectData      bool
 	}{
@@ -23,7 +24,7 @@ func TestNewChange(t *testing.T) {
 			name:            "change without data",
 			identifiedBy:    "_id",
 			identifierValue: "test-1",
-			action:          ActionsDict.Deleted,
+			action:          diff.ActionsDict.Deleted,
 			data:            nil,
 			expectData:      false,
 		},
@@ -31,7 +32,7 @@ func TestNewChange(t *testing.T) {
 			name:            "change with data",
 			identifiedBy:    "_id",
 			identifierValue: "test-2",
-			action:          ActionsDict.Updated,
+			action:          diff.ActionsDict.Updated,
 			data:            []bson.M{{"name": "updated"}},
 			expectData:      true,
 		},
@@ -39,7 +40,7 @@ func TestNewChange(t *testing.T) {
 			name:            "change with multiple data (only first used)",
 			identifiedBy:    "_id",
 			identifierValue: "test-3",
-			action:          ActionsDict.Added,
+			action:          diff.ActionsDict.Added,
 			data:            []bson.M{{"name": "first"}, {"name": "second"}},
 			expectData:      true,
 		},
@@ -47,7 +48,7 @@ func TestNewChange(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			change := NewChange(tt.identifiedBy, tt.identifierValue, tt.action, tt.data...)
+			change := diff.NewChange(tt.identifiedBy, tt.identifierValue, tt.action, tt.data...)
 
 			assert.NotNil(t, change)
 			assert.Equal(t, tt.identifiedBy, change.IdentifiedBy)
@@ -72,34 +73,34 @@ func TestNewChange(t *testing.T) {
 func TestChange_IsEffective(t *testing.T) {
 	tests := []struct {
 		name     string
-		action   Action
+		action   diff.Action
 		expected bool
 	}{
 		{
 			name:     "noop action is not effective",
-			action:   ActionsDict.Noop,
+			action:   diff.ActionsDict.Noop,
 			expected: false,
 		},
 		{
 			name:     "added action is effective",
-			action:   ActionsDict.Added,
+			action:   diff.ActionsDict.Added,
 			expected: true,
 		},
 		{
 			name:     "updated action is effective",
-			action:   ActionsDict.Updated,
+			action:   diff.ActionsDict.Updated,
 			expected: true,
 		},
 		{
 			name:     "deleted action is effective",
-			action:   ActionsDict.Deleted,
+			action:   diff.ActionsDict.Deleted,
 			expected: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			change := &Change{Action: tt.action}
+			change := &diff.Change{Action: tt.action}
 			result := change.IsEffective()
 
 			assert.Equal(t, tt.expected, result)
@@ -108,10 +109,10 @@ func TestChange_IsEffective(t *testing.T) {
 }
 
 func TestChanges_Len(t *testing.T) {
-	changes := Changes{
-		NewChange("_id", "1", ActionsDict.Added),
-		NewChange("_id", "2", ActionsDict.Updated),
-		NewChange("_id", "3", ActionsDict.Deleted),
+	changes := diff.Changes{
+		diff.NewChange("_id", "1", diff.ActionsDict.Added),
+		diff.NewChange("_id", "2", diff.ActionsDict.Updated),
+		diff.NewChange("_id", "3", diff.ActionsDict.Deleted),
 	}
 
 	expected := 3
@@ -119,50 +120,50 @@ func TestChanges_Len(t *testing.T) {
 }
 
 func TestChanges_Filter(t *testing.T) {
-	changes := Changes{
-		NewChange("_id", "1", ActionsDict.Added),
-		NewChange("_id", "2", ActionsDict.Updated),
-		NewChange("_id", "3", ActionsDict.Deleted),
-		NewChange("_id", "4", ActionsDict.Noop),
+	changes := diff.Changes{
+		diff.NewChange("_id", "1", diff.ActionsDict.Added),
+		diff.NewChange("_id", "2", diff.ActionsDict.Updated),
+		diff.NewChange("_id", "3", diff.ActionsDict.Deleted),
+		diff.NewChange("_id", "4", diff.ActionsDict.Noop),
 	}
 
 	// Filter for only Added and Updated
-	filtered := changes.Filter(func(c *Change) bool {
-		return c.Action == ActionsDict.Added || c.Action == ActionsDict.Updated
+	filtered := changes.Filter(func(c *diff.Change) bool {
+		return c.Action == diff.ActionsDict.Added || c.Action == diff.ActionsDict.Updated
 	})
 
 	assert.Len(t, filtered, 2)
 
 	for _, change := range filtered {
-		assert.True(t, change.Action == ActionsDict.Added || change.Action == ActionsDict.Updated)
+		assert.True(t, change.Action == diff.ActionsDict.Added || change.Action == diff.ActionsDict.Updated)
 	}
 }
 
 func TestChanges_FilterByAction(t *testing.T) {
-	changes := Changes{
-		NewChange("_id", "1", ActionsDict.Added),
-		NewChange("_id", "2", ActionsDict.Updated),
-		NewChange("_id", "3", ActionsDict.Added),
-		NewChange("_id", "4", ActionsDict.Deleted),
+	changes := diff.Changes{
+		diff.NewChange("_id", "1", diff.ActionsDict.Added),
+		diff.NewChange("_id", "2", diff.ActionsDict.Updated),
+		diff.NewChange("_id", "3", diff.ActionsDict.Added),
+		diff.NewChange("_id", "4", diff.ActionsDict.Deleted),
 	}
 
-	addedChanges := changes.FilterByAction(ActionsDict.Added)
+	addedChanges := changes.FilterByAction(diff.ActionsDict.Added)
 	assert.Len(t, addedChanges, 2)
 
-	updatedChanges := changes.FilterByAction(ActionsDict.Updated)
+	updatedChanges := changes.FilterByAction(diff.ActionsDict.Updated)
 	assert.Len(t, updatedChanges, 1)
 
-	deletedChanges := changes.FilterByAction(ActionsDict.Deleted)
+	deletedChanges := changes.FilterByAction(diff.ActionsDict.Deleted)
 	assert.Len(t, deletedChanges, 1)
 }
 
 func TestChanges_EffectiveOnes(t *testing.T) {
-	changes := Changes{
-		NewChange("_id", "1", ActionsDict.Added),
-		NewChange("_id", "2", ActionsDict.Noop),
-		NewChange("_id", "3", ActionsDict.Updated),
-		NewChange("_id", "4", ActionsDict.Noop),
-		NewChange("_id", "5", ActionsDict.Deleted),
+	changes := diff.Changes{
+		diff.NewChange("_id", "1", diff.ActionsDict.Added),
+		diff.NewChange("_id", "2", diff.ActionsDict.Noop),
+		diff.NewChange("_id", "3", diff.ActionsDict.Updated),
+		diff.NewChange("_id", "4", diff.ActionsDict.Noop),
+		diff.NewChange("_id", "5", diff.ActionsDict.Deleted),
 	}
 
 	effective := changes.EffectiveOnes()
@@ -170,7 +171,7 @@ func TestChanges_EffectiveOnes(t *testing.T) {
 	assert.Len(t, effective, 3)
 
 	for _, change := range effective {
-		assert.NotEqual(t, ActionsDict.Noop, change.Action)
+		assert.NotEqual(t, diff.ActionsDict.Noop, change.Action)
 	}
 }
 
@@ -200,7 +201,7 @@ func TestCalculateChanges(t *testing.T) {
 	// Current destination (after editing)
 	destination := []bson.M{doc1, doc2, doc3, doc4}
 
-	changes, err := CalculateChanges(source, destination)
+	changes, err := diff.CalculateChanges(source, destination)
 	require.NoError(t, err)
 	assert.Len(t, changes, 5) // 4 destination docs + 1 deleted
 
@@ -212,10 +213,10 @@ func TestCalculateChanges(t *testing.T) {
 	assert.Len(t, effective, expectedEffective)
 
 	// Count by action
-	added := changes.FilterByAction(ActionsDict.Added)
-	updated := changes.FilterByAction(ActionsDict.Updated)
-	deleted := changes.FilterByAction(ActionsDict.Deleted)
-	noop := changes.FilterByAction(ActionsDict.Noop)
+	added := changes.FilterByAction(diff.ActionsDict.Added)
+	updated := changes.FilterByAction(diff.ActionsDict.Updated)
+	deleted := changes.FilterByAction(diff.ActionsDict.Deleted)
+	noop := changes.FilterByAction(diff.ActionsDict.Noop)
 
 	assert.Len(t, added, 1)
 	assert.Len(t, updated, 1)
@@ -231,12 +232,12 @@ func TestCalculateChanges_EmptySource(t *testing.T) {
 		{"_id": "new2", "name": "New Document 2"},
 	}
 
-	changes, err := CalculateChanges(source, destination)
+	changes, err := diff.CalculateChanges(source, destination)
 	require.NoError(t, err)
 	assert.Len(t, changes, 2)
 
 	for _, change := range changes {
-		assert.Equal(t, ActionsDict.Added, change.Action)
+		assert.Equal(t, diff.ActionsDict.Added, change.Action)
 	}
 }
 
@@ -253,12 +254,12 @@ func TestCalculateChanges_EmptyDestination(t *testing.T) {
 
 	destination := []bson.M{}
 
-	changes, err := CalculateChanges(source, destination)
+	changes, err := diff.CalculateChanges(source, destination)
 	require.NoError(t, err)
 	assert.Len(t, changes, 2)
 
 	for _, change := range changes {
-		assert.Equal(t, ActionsDict.Deleted, change.Action)
+		assert.Equal(t, diff.ActionsDict.Deleted, change.Action)
 	}
 }
 
@@ -269,7 +270,7 @@ func TestCalculateChanges_InvalidDocument(t *testing.T) {
 		{"name": "Document without ID"},
 	}
 
-	_, err := CalculateChanges(source, destination)
+	_, err := diff.CalculateChanges(source, destination)
 	assert.Error(t, err)
 }
 
@@ -288,12 +289,12 @@ func TestCalculateChanges_ObjectIDSupport(t *testing.T) {
 	// doc2 is new
 	destination := []bson.M{doc1, doc2}
 
-	changes, err := CalculateChanges(source, destination)
+	changes, err := diff.CalculateChanges(source, destination)
 	require.NoError(t, err)
 	assert.Len(t, changes, 2)
 
 	// One should be noop, one should be added
 	effective := changes.EffectiveOnes()
 	assert.Len(t, effective, 1)
-	assert.Equal(t, ActionsDict.Added, effective[0].Action)
+	assert.Equal(t, diff.ActionsDict.Added, effective[0].Action)
 }

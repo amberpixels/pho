@@ -28,8 +28,8 @@ const (
 )
 
 var (
-	ErrNoMeta = fmt.Errorf("meta file is missing")
-	ErrNoDump = fmt.Errorf("dump file is missing")
+	ErrNoMeta = errors.New("meta file is missing")
+	ErrNoDump = errors.New("dump file is missing")
 )
 
 // App represents the Pho app.
@@ -52,7 +52,7 @@ func NewApp(opts ...Option) *App {
 	return c
 }
 
-// getDumpFileExtension determines the appropriate file extension based on renderer configuration
+// getDumpFileExtension determines the appropriate file extension based on renderer configuration.
 func (app *App) getDumpFileExtension() string {
 	config := app.render.GetConfiguration()
 
@@ -65,7 +65,7 @@ func (app *App) getDumpFileExtension() string {
 	return ".jsonl"
 }
 
-// getDumpFilename returns the complete dump filename with appropriate extension
+// getDumpFilename returns the complete dump filename with appropriate extension.
 func (app *App) getDumpFilename() string {
 	return phoDumpBase + app.getDumpFileExtension()
 }
@@ -90,7 +90,7 @@ func (app *App) ConnectDB(ctx context.Context) error {
 	return nil
 }
 
-// ConnectDBForApply connects to database using metadata if available, otherwise uses app configuration
+// ConnectDBForApply connects to database using metadata if available, otherwise uses app configuration.
 func (app *App) ConnectDBForApply(ctx context.Context) error {
 	// Try to read metadata to get connection details
 	metadata, err := app.readMeta(ctx)
@@ -125,9 +125,15 @@ func (app *App) Close(ctx context.Context) error {
 }
 
 // RunQuery executes a query against the MongoDB collection.
-func (app *App) RunQuery(ctx context.Context, query string, limit int64, sort string, projection string) (*mongo.Cursor, error) {
+func (app *App) RunQuery(
+	ctx context.Context,
+	query string,
+	limit int64,
+	sort string,
+	projection string,
+) (*mongo.Cursor, error) {
 	if app.dbClient == nil {
-		return nil, fmt.Errorf("db not connected")
+		return nil, errors.New("db not connected")
 	}
 
 	col := app.dbClient.Database(app.dbName).Collection(app.collectionName)
@@ -242,7 +248,7 @@ func (app *App) Dump(ctx context.Context, cursor *mongo.Cursor, out io.Writer) e
 	return nil
 }
 
-// setupPhoDir ensures .pho directory exists or creates it
+// setupPhoDir ensures .pho directory exists or creates it.
 func (app *App) setupPhoDir() error {
 	_, err := os.Stat(phoDir)
 	if err == nil {
@@ -252,14 +258,14 @@ func (app *App) setupPhoDir() error {
 		return fmt.Errorf("could not validate pho dir: %w", err)
 	}
 
-	if err := os.Mkdir(phoDir, 0755); err != nil {
+	if err := os.Mkdir(phoDir, 0750); err != nil {
 		return fmt.Errorf("could not create pho dir: %w", err)
 	}
 
 	return nil
 }
 
-// writeMetadata writes metadata to the JSON-based metadata file
+// writeMetadata writes metadata to the JSON-based metadata file.
 func (app *App) writeMetadata(metadata *ParsedMeta) error {
 	if err := app.setupPhoDir(); err != nil {
 		return err
@@ -279,7 +285,7 @@ func (app *App) writeMetadata(metadata *ParsedMeta) error {
 	return nil
 }
 
-// SetupDumpDestination sets up writer (*os.File) for dump to be written in
+// SetupDumpDestination sets up writer (*os.File) for dump to be written in.
 func (app *App) SetupDumpDestination() (*os.File, string, error) {
 	if err := app.setupPhoDir(); err != nil {
 		return nil, "", err
@@ -295,9 +301,8 @@ func (app *App) SetupDumpDestination() (*os.File, string, error) {
 	return file, destinationPath, nil
 }
 
-// OpenEditor opens file under filePath in given editor
+// OpenEditor opens file under filePath in given editor.
 func (app *App) OpenEditor(editorCmd string, filePath string) error {
-
 	// Depending on which editor is selected, we can have custom args
 	// for syntax, etc
 
@@ -327,7 +332,6 @@ func (app *App) OpenEditor(editorCmd string, filePath string) error {
 }
 
 func (app *App) readMeta(ctx context.Context) (*ParsedMeta, error) {
-
 	if err := app.setupPhoDir(); err != nil {
 		return nil, err
 	}
@@ -377,7 +381,6 @@ func (app *App) readMeta(ctx context.Context) (*ParsedMeta, error) {
 }
 
 func (app *App) readDump(ctx context.Context) ([]bson.M, error) {
-
 	if err := app.setupPhoDir(); err != nil {
 		return nil, err
 	}
@@ -443,45 +446,45 @@ func (app *App) extractChanges(ctx context.Context) (diff.Changes, error) {
 	return diff.CalculateChanges(meta.Lines, dump)
 }
 
-// ReviewChanges output changes in mongo-shell format
+// ReviewChanges output changes in mongo-shell format.
 func (app *App) ReviewChanges(ctx context.Context) error {
 	if app.collectionName == "" {
-		return fmt.Errorf("collection name is required")
+		return errors.New("collection name is required")
 	}
 
 	allChanges, err := app.extractChanges(ctx)
 	if err != nil {
 		if errors.Is(err, ErrNoMeta) || errors.Is(err, ErrNoDump) {
-			return fmt.Errorf("no dump data to be reviewed")
+			return errors.New("no dump data to be reviewed")
 		}
 		return fmt.Errorf("failed on extracting changes: %w", err)
 	}
 
 	changes := allChanges.EffectiveOnes()
 
-	fmt.Println("// Effective changes: ", changes.Len())
-	fmt.Println("// Noop changes: ", allChanges.FilterByAction(diff.ActionsDict.Noop).Len())
+	_, _ = fmt.Fprintf(os.Stdout, "// Effective changes: %d\n", changes.Len())
+	_, _ = fmt.Fprintf(os.Stdout, "// Noop changes: %d\n", allChanges.FilterByAction(diff.ActionsDict.Noop).Len())
 
 	mongoShellRestorer := restore.NewMongoShellRestorer(app.collectionName)
 
 	for _, ch := range changes {
 		if mongoCmd, err := mongoShellRestorer.Build(ch); err != nil {
-			fmt.Println("could not build mongo shell command: ", err)
+			_, _ = fmt.Fprintf(os.Stderr, "could not build mongo shell command: %v\n", err)
 		} else {
-			fmt.Println(mongoCmd)
+			_, _ = fmt.Fprintf(os.Stdout, "%s\n", mongoCmd)
 		}
 	}
 
 	return nil
 }
 
-// ApplyChanges applies (executes) the changes
+// ApplyChanges applies (executes) the changes.
 func (app *App) ApplyChanges(ctx context.Context) error {
 	if app.collectionName == "" {
-		return fmt.Errorf("collection name is required")
+		return errors.New("collection name is required")
 	}
 	if app.dbName == "" {
-		return fmt.Errorf("db name is required")
+		return errors.New("db name is required")
 	}
 
 	col := app.dbClient.Database(app.dbName).Collection(app.collectionName)
@@ -489,7 +492,7 @@ func (app *App) ApplyChanges(ctx context.Context) error {
 	allChanges, err := app.extractChanges(ctx)
 	if err != nil {
 		if errors.Is(err, ErrNoMeta) || errors.Is(err, ErrNoDump) {
-			return fmt.Errorf("no dump data to be reviewed")
+			return errors.New("no dump data to be reviewed")
 		}
 		return fmt.Errorf("failed on extracting changes: %w", err)
 	}
@@ -498,18 +501,18 @@ func (app *App) ApplyChanges(ctx context.Context) error {
 
 	// TODO: make level of verbosity an app flag
 
-	fmt.Println("// Effective changes: ", changes.Len())
-	fmt.Println("// Noop changes: ", allChanges.FilterByAction(diff.ActionsDict.Noop).Len())
+	_, _ = fmt.Fprintf(os.Stdout, "// Effective changes: %d\n", changes.Len())
+	_, _ = fmt.Fprintf(os.Stdout, "// Noop changes: %d\n", allChanges.FilterByAction(diff.ActionsDict.Noop).Len())
 
 	mongoClientRestorer := restore.NewMongoClientRestorer(col)
 
 	for _, ch := range changes {
 		if mongoCmd, err := mongoClientRestorer.Build(ch); err != nil {
-			fmt.Println("could not build mongo shell command: ", err)
+			_, _ = fmt.Fprintf(os.Stderr, "could not build mongo shell command: %v\n", err)
 		} else {
 			err := mongoCmd(ctx)
 			if err != nil {
-				fmt.Println("failed to apply change: %w", err)
+				_, _ = fmt.Fprintf(os.Stderr, "failed to apply change: %v\n", err)
 			}
 		}
 	}

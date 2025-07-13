@@ -8,7 +8,7 @@ import (
 )
 
 // NewDecoder returns a jsonl decoder
-// that actually is a simple json.Decoder with a middleware for cleaning up comments
+// that actually is a simple json.Decoder with a middleware for cleaning up comments.
 func NewDecoder(r io.Reader) *json.Decoder {
 	return json.NewDecoder(NewJSONCommentsCleaner(r))
 }

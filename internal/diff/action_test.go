@@ -1,8 +1,10 @@
-package diff
+package diff_test
 
 import (
 	"encoding/json"
 	"testing"
+
+	"pho/internal/diff"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -11,32 +13,32 @@ import (
 func TestAction_String(t *testing.T) {
 	tests := []struct {
 		name     string
-		action   Action
+		action   diff.Action
 		expected string
 	}{
 		{
-			name:     "ActionNoop",
-			action:   ActionNoop,
+			name:     "diff.ActionNoop",
+			action:   diff.ActionNoop,
 			expected: "NOOP",
 		},
 		{
-			name:     "ActionUpdated",
-			action:   ActionUpdated,
+			name:     "diff.ActionUpdated",
+			action:   diff.ActionUpdated,
 			expected: "UPDATED",
 		},
 		{
-			name:     "ActionDeleted",
-			action:   ActionDeleted,
+			name:     "diff.ActionDeleted",
+			action:   diff.ActionDeleted,
 			expected: "DELETED",
 		},
 		{
-			name:     "ActionAdded",
-			action:   ActionAdded,
+			name:     "diff.ActionAdded",
+			action:   diff.ActionAdded,
 			expected: "ADDED",
 		},
 		{
 			name:     "Invalid action",
-			action:   Action(99),
+			action:   diff.Action(99),
 			expected: "Action(99)",
 		},
 	}
@@ -52,32 +54,32 @@ func TestAction_String(t *testing.T) {
 func TestAction_IsValid(t *testing.T) {
 	tests := []struct {
 		name     string
-		action   Action
+		action   diff.Action
 		expected bool
 	}{
 		{
-			name:     "ActionNoop is valid",
-			action:   ActionNoop,
+			name:     "diff.ActionNoop is valid",
+			action:   diff.ActionNoop,
 			expected: true,
 		},
 		{
-			name:     "ActionUpdated is valid",
-			action:   ActionUpdated,
+			name:     "diff.ActionUpdated is valid",
+			action:   diff.ActionUpdated,
 			expected: true,
 		},
 		{
-			name:     "ActionDeleted is valid",
-			action:   ActionDeleted,
+			name:     "diff.ActionDeleted is valid",
+			action:   diff.ActionDeleted,
 			expected: true,
 		},
 		{
-			name:     "ActionAdded is valid",
-			action:   ActionAdded,
+			name:     "diff.ActionAdded is valid",
+			action:   diff.ActionAdded,
 			expected: true,
 		},
 		{
 			name:     "Invalid high value",
-			action:   Action(99),
+			action:   diff.Action(99),
 			expected: false,
 		},
 	}
@@ -93,27 +95,27 @@ func TestAction_IsValid(t *testing.T) {
 func TestAction_IsEffective(t *testing.T) {
 	tests := []struct {
 		name     string
-		action   Action
+		action   diff.Action
 		expected bool
 	}{
 		{
-			name:     "ActionNoop is not effective",
-			action:   ActionNoop,
+			name:     "diff.ActionNoop is not effective",
+			action:   diff.ActionNoop,
 			expected: false,
 		},
 		{
-			name:     "ActionUpdated is effective",
-			action:   ActionUpdated,
+			name:     "diff.ActionUpdated is effective",
+			action:   diff.ActionUpdated,
 			expected: true,
 		},
 		{
-			name:     "ActionDeleted is effective",
-			action:   ActionDeleted,
+			name:     "diff.ActionDeleted is effective",
+			action:   diff.ActionDeleted,
 			expected: true,
 		},
 		{
-			name:     "ActionAdded is effective",
-			action:   ActionAdded,
+			name:     "diff.ActionAdded is effective",
+			action:   diff.ActionAdded,
 			expected: true,
 		},
 	}
@@ -129,27 +131,27 @@ func TestAction_IsEffective(t *testing.T) {
 func TestAction_MarshalText(t *testing.T) {
 	tests := []struct {
 		name     string
-		action   Action
+		action   diff.Action
 		expected string
 	}{
 		{
-			name:     "ActionNoop marshals to NOOP",
-			action:   ActionNoop,
+			name:     "diff.ActionNoop marshals to NOOP",
+			action:   diff.ActionNoop,
 			expected: "NOOP",
 		},
 		{
-			name:     "ActionUpdated marshals to UPDATED",
-			action:   ActionUpdated,
+			name:     "diff.ActionUpdated marshals to UPDATED",
+			action:   diff.ActionUpdated,
 			expected: "UPDATED",
 		},
 		{
-			name:     "ActionDeleted marshals to DELETED",
-			action:   ActionDeleted,
+			name:     "diff.ActionDeleted marshals to DELETED",
+			action:   diff.ActionDeleted,
 			expected: "DELETED",
 		},
 		{
-			name:     "ActionAdded marshals to ADDED",
-			action:   ActionAdded,
+			name:     "diff.ActionAdded marshals to ADDED",
+			action:   diff.ActionAdded,
 			expected: "ADDED",
 		},
 	}
@@ -167,50 +169,50 @@ func TestAction_UnmarshalText(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
-		expected Action
+		expected diff.Action
 		wantErr  bool
 	}{
 		{
-			name:     "NOOP unmarshals to ActionNoop",
+			name:     "NOOP unmarshals to diff.ActionNoop",
 			input:    "NOOP",
-			expected: ActionNoop,
+			expected: diff.ActionNoop,
 			wantErr:  false,
 		},
 		{
-			name:     "UPDATED unmarshals to ActionUpdated",
+			name:     "UPDATED unmarshals to diff.ActionUpdated",
 			input:    "UPDATED",
-			expected: ActionUpdated,
+			expected: diff.ActionUpdated,
 			wantErr:  false,
 		},
 		{
-			name:     "DELETED unmarshals to ActionDeleted",
+			name:     "DELETED unmarshals to diff.ActionDeleted",
 			input:    "DELETED",
-			expected: ActionDeleted,
+			expected: diff.ActionDeleted,
 			wantErr:  false,
 		},
 		{
-			name:     "ADDED unmarshals to ActionAdded",
+			name:     "ADDED unmarshals to diff.ActionAdded",
 			input:    "ADDED",
-			expected: ActionAdded,
+			expected: diff.ActionAdded,
 			wantErr:  false,
 		},
 		{
 			name:     "Invalid string returns error",
 			input:    "INVALID",
-			expected: ActionNoop,
+			expected: diff.ActionNoop,
 			wantErr:  true,
 		},
 		{
 			name:     "Empty string returns error",
 			input:    "",
-			expected: ActionNoop,
+			expected: diff.ActionNoop,
 			wantErr:  true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var action Action
+			var action diff.Action
 			err := action.UnmarshalText([]byte(tt.input))
 
 			if tt.wantErr {
@@ -228,44 +230,44 @@ func TestParseAction(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
-		expected Action
+		expected diff.Action
 		wantErr  bool
 	}{
 		{
 			name:     "Parse NOOP",
 			input:    "NOOP",
-			expected: ActionNoop,
+			expected: diff.ActionNoop,
 			wantErr:  false,
 		},
 		{
 			name:     "Parse UPDATED",
 			input:    "UPDATED",
-			expected: ActionUpdated,
+			expected: diff.ActionUpdated,
 			wantErr:  false,
 		},
 		{
 			name:     "Parse DELETED",
 			input:    "DELETED",
-			expected: ActionDeleted,
+			expected: diff.ActionDeleted,
 			wantErr:  false,
 		},
 		{
 			name:     "Parse ADDED",
 			input:    "ADDED",
-			expected: ActionAdded,
+			expected: diff.ActionAdded,
 			wantErr:  false,
 		},
 		{
 			name:     "Parse invalid",
 			input:    "INVALID",
-			expected: ActionNoop,
+			expected: diff.ActionNoop,
 			wantErr:  true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := ParseAction(tt.input)
+			result, err := diff.ParseAction(tt.input)
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -282,23 +284,23 @@ func TestAction_JSONMarshaling(t *testing.T) {
 	// Test JSON marshaling/unmarshaling through the MarshalText/UnmarshalText interface
 	tests := []struct {
 		name   string
-		action Action
+		action diff.Action
 	}{
 		{
-			name:   "ActionNoop",
-			action: ActionNoop,
+			name:   "diff.ActionNoop",
+			action: diff.ActionNoop,
 		},
 		{
-			name:   "ActionUpdated",
-			action: ActionUpdated,
+			name:   "diff.ActionUpdated",
+			action: diff.ActionUpdated,
 		},
 		{
-			name:   "ActionDeleted",
-			action: ActionDeleted,
+			name:   "diff.ActionDeleted",
+			action: diff.ActionDeleted,
 		},
 		{
-			name:   "ActionAdded",
-			action: ActionAdded,
+			name:   "diff.ActionAdded",
+			action: diff.ActionAdded,
 		},
 	}
 
@@ -309,7 +311,7 @@ func TestAction_JSONMarshaling(t *testing.T) {
 			require.NoError(t, err)
 
 			// Unmarshal from JSON
-			var unmarshaled Action
+			var unmarshaled diff.Action
 			err = json.Unmarshal(data, &unmarshaled)
 			require.NoError(t, err)
 
@@ -320,31 +322,31 @@ func TestAction_JSONMarshaling(t *testing.T) {
 }
 
 func TestActionsDict_BackwardCompatibility(t *testing.T) {
-	// Test that ActionsDict still works for backward compatibility
+	// Test that diff.ActionsDict still works for backward compatibility
 	tests := []struct {
 		name string
-		old  Action
-		new  Action
+		old  diff.Action
+		new  diff.Action
 	}{
 		{
 			name: "Noop compatibility",
-			old:  ActionsDict.Noop,
-			new:  ActionNoop,
+			old:  diff.ActionsDict.Noop,
+			new:  diff.ActionNoop,
 		},
 		{
 			name: "Updated compatibility",
-			old:  ActionsDict.Updated,
-			new:  ActionUpdated,
+			old:  diff.ActionsDict.Updated,
+			new:  diff.ActionUpdated,
 		},
 		{
 			name: "Deleted compatibility",
-			old:  ActionsDict.Deleted,
-			new:  ActionDeleted,
+			old:  diff.ActionsDict.Deleted,
+			new:  diff.ActionDeleted,
 		},
 		{
 			name: "Added compatibility",
-			old:  ActionsDict.Added,
-			new:  ActionAdded,
+			old:  diff.ActionsDict.Added,
+			new:  diff.ActionAdded,
 		},
 	}
 
@@ -357,8 +359,8 @@ func TestActionsDict_BackwardCompatibility(t *testing.T) {
 
 func TestAction_EnumValues(t *testing.T) {
 	// Test that enum values are sequential starting from 0
-	assert.Equal(t, Action(0), ActionNoop)
-	assert.Equal(t, Action(1), ActionUpdated)
-	assert.Equal(t, Action(2), ActionDeleted)
-	assert.Equal(t, Action(3), ActionAdded)
+	assert.Equal(t, diff.ActionNoop, diff.Action(0))
+	assert.Equal(t, diff.ActionUpdated, diff.Action(1))
+	assert.Equal(t, diff.ActionDeleted, diff.Action(2))
+	assert.Equal(t, diff.ActionAdded, diff.Action(3))
 }

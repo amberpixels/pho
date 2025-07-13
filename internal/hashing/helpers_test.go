@@ -1,8 +1,10 @@
-package hashing
+package hashing_test
 
 import (
 	"crypto/sha256"
 	"testing"
+
+	"pho/internal/hashing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -33,7 +35,7 @@ func TestCalculateChecksum(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := CalculateChecksum(tt.data, sha256.New())
+			result, err := hashing.CalculateChecksum(tt.data, sha256.New())
 			require.NoError(t, err)
 
 			// For the complex data test, just verify it's a valid SHA256 (64 hex chars)
@@ -51,10 +53,10 @@ func TestCalculateChecksumConsistency(t *testing.T) {
 	data := []byte("consistency test data")
 
 	// Calculate checksum multiple times
-	checksum1, err := CalculateChecksum(data, sha256.New())
+	checksum1, err := hashing.CalculateChecksum(data, sha256.New())
 	require.NoError(t, err)
 
-	checksum2, err := CalculateChecksum(data, sha256.New())
+	checksum2, err := hashing.CalculateChecksum(data, sha256.New())
 	require.NoError(t, err)
 
 	assert.Equal(t, checksum1, checksum2)
@@ -64,10 +66,10 @@ func TestCalculateChecksumSensitivity(t *testing.T) {
 	data1 := []byte("test data 1")
 	data2 := []byte("test data 2")
 
-	checksum1, err := CalculateChecksum(data1, sha256.New())
+	checksum1, err := hashing.CalculateChecksum(data1, sha256.New())
 	require.NoError(t, err)
 
-	checksum2, err := CalculateChecksum(data2, sha256.New())
+	checksum2, err := hashing.CalculateChecksum(data2, sha256.New())
 	require.NoError(t, err)
 
 	assert.NotEqual(t, checksum1, checksum2)
@@ -76,7 +78,7 @@ func TestCalculateChecksumSensitivity(t *testing.T) {
 func TestCalculateChecksumLength(t *testing.T) {
 	data := []byte("test data for length verification")
 
-	checksum, err := CalculateChecksum(data, sha256.New())
+	checksum, err := hashing.CalculateChecksum(data, sha256.New())
 	require.NoError(t, err)
 
 	// SHA256 produces 64 character hex string
@@ -84,6 +86,12 @@ func TestCalculateChecksumLength(t *testing.T) {
 
 	// Verify it's all hex characters
 	for i, c := range checksum {
-		assert.True(t, (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'), "Invalid hex character at position %d: %c", i, c)
+		assert.True(
+			t,
+			(c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'),
+			"Invalid hex character at position %d: %c",
+			i,
+			c,
+		)
 	}
 }

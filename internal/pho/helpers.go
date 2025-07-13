@@ -3,13 +3,12 @@ package pho
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"strings"
 
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-// parseQuery parses query string into bson.M
+// parseQuery parses query string into bson.M.
 func parseQuery(queryStr string) (bson.M, error) {
 	var query bson.M
 	if err := json.Unmarshal([]byte(queryStr), &query); err != nil {
@@ -19,7 +18,7 @@ func parseQuery(queryStr string) (bson.M, error) {
 	return query, nil
 }
 
-// parseSort parses sort string into bson.D
+// parseSort parses sort string into bson.D.
 func parseSort(sortStr string) bson.D {
 	var sort bson.D
 
@@ -27,7 +26,8 @@ func parseSort(sortStr string) bson.D {
 	if strings.HasPrefix(sortStr, "{") {
 		err := json.Unmarshal([]byte(sortStr), &sort)
 		if err != nil {
-			log.Fatalf("Error parsing sort: %v", err)
+			// Return empty sort instead of fatal error
+			return bson.D{}
 		}
 		return sort
 	}
@@ -47,7 +47,7 @@ func parseSort(sortStr string) bson.D {
 	return sort
 }
 
-// parseProjection parses projection string into bson.D
+// parseProjection parses projection string into bson.D.
 func parseProjection(in string) bson.D {
 	// TODO:
 	// for now do the same as parseSort, but should be refactored

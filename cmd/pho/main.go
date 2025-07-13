@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -9,6 +10,7 @@ import (
 	"pho/internal/pho"
 	"pho/internal/render"
 	"strings"
+	"time"
 
 	"github.com/urfave/cli/v3"
 )
@@ -76,7 +78,7 @@ This will execute the actual database operations.`,
 	}
 }
 
-// getConnectionFlags returns flags for MongoDB connection
+// getConnectionFlags returns flags for MongoDB connection.
 func getConnectionFlags() []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{
@@ -113,7 +115,11 @@ func getConnectionFlags() []cli.Flag {
 	}
 }
 
-// getCommonFlags returns all flags including connection and query flags
+const (
+	defaultDocumentLimit = 10000 // Default limit for document retrieval
+)
+
+// getCommonFlags returns all flags including connection and query flags.
 func getCommonFlags() []cli.Flag {
 	connectionFlags := getConnectionFlags()
 	queryFlags := []cli.Flag{
@@ -126,7 +132,7 @@ func getCommonFlags() []cli.Flag {
 		&cli.Int64Flag{
 			Name:    "limit",
 			Aliases: []string{"l"},
-			Value:   10000,
+			Value:   defaultDocumentLimit,
 			Usage:   "Maximum number of documents to retrieve",
 		},
 		&cli.StringFlag{
@@ -175,17 +181,17 @@ func getCommonFlags() []cli.Flag {
 	return append(connectionFlags, queryFlags...)
 }
 
-// getVerbosityLevel determines the verbosity level from CLI flags
+// getVerbosityLevel determines the verbosity level from CLI flags.
 func getVerbosityLevel(cmd *cli.Command) logging.VerbosityLevel {
 	verbose := cmd.Bool("verbose")
 	quiet := cmd.Bool("quiet")
-	
+
 	// Validate conflicting flags
 	if verbose && quiet {
 		fmt.Fprintf(os.Stderr, "Error: --verbose and --quiet flags cannot be used together\n")
 		os.Exit(1)
 	}
-	
+
 	if quiet {
 		return logging.LevelQuiet
 	}
@@ -195,19 +201,19 @@ func getVerbosityLevel(cmd *cli.Command) logging.VerbosityLevel {
 	return logging.LevelNormal
 }
 
-// createLogger creates a logger with the appropriate verbosity level
+// createLogger creates a logger with the appropriate verbosity level.
 func createLogger(cmd *cli.Command) *logging.Logger {
 	level := getVerbosityLevel(cmd)
 	return logging.NewLogger(level)
 }
 
-// queryAction handles the main query and edit workflow
+// queryAction handles the main query and edit workflow.
 func queryAction(ctx context.Context, cmd *cli.Command) error {
 	// Create logger with appropriate verbosity level
 	logger := createLogger(cmd)
-	
+
 	logger.Verbose("Starting query action with verbosity level: %s", logger.GetLevel().String())
-	
+
 	// Parse and validate ExtJSON mode
 	extjsonModeStr := cmd.String("extjson-mode")
 	logger.Debug("ExtJSON mode: %s", extjsonModeStr)
@@ -221,10 +227,10 @@ func queryAction(ctx context.Context, cmd *cli.Command) error {
 	uri := prepareMongoURI(cmd.String("uri"), cmd.String("host"), cmd.String("port"))
 	db := cmd.String("db")
 	collection := cmd.String("collection")
-	
+
 	logger.Debug("Configuration: URI=%s, DB=%s, Collection=%s", uri, db, collection)
 	logger.Verbose("Creating pho application instance")
-	
+
 	p := pho.NewApp(
 		pho.WithURI(uri),
 		pho.WithDatabase(db),
@@ -253,7 +259,7 @@ func queryAction(ctx context.Context, cmd *cli.Command) error {
 	query := cmd.String("query")
 	limit := cmd.Int64("limit")
 	logger.Verbose("Executing query: %s (limit: %d)", query, limit)
-	
+
 	cursor, err := p.RunQuery(ctx, query, limit, cmd.String("sort"), cmd.String("projection"))
 	if err != nil {
 		logger.Error("Query execution failed: %s", err)
@@ -275,6 +281,37 @@ func queryAction(ctx context.Context, cmd *cli.Command) error {
 		return nil
 	}
 
+	// Check for existing session before starting edit workflow
+	hasSession, existingSession, err := p.HasActiveSession(ctx)
+	if err != nil {
+		logger.Error("Failed to check for existing session: %s", err)
+		return fmt.Errorf("failed to check for existing session: %w", err)
+	}
+
+	if hasSession {
+		logger.Warning("Previous session found")
+		fmt.Fprintf(os.Stderr, "Previous session found (created %s ago)\n", formatDuration(existingSession.Age()))
+		fmt.Fprintf(os.Stderr, "Previous: db=%s collection=%s query=%s\n",
+			existingSession.QueryParams.Database,
+			existingSession.QueryParams.Collection,
+			existingSession.QueryParams.Query)
+		fmt.Fprint(os.Stderr, "Starting new session will discard previous changes. Continue? (y/N): ")
+
+		var response string
+		_, _ = fmt.Scanln(&response)
+		if response != "y" && response != "Y" && response != "yes" && response != "Yes" {
+			logger.Info("Operation cancelled by user")
+			return errors.New("operation cancelled: previous session exists")
+		}
+
+		// Clear previous session
+		logger.Verbose("Clearing previous session")
+		if err := p.ClearSession(ctx); err != nil {
+			logger.Error("Failed to clear previous session: %s", err)
+			return fmt.Errorf("failed to clear previous session: %w", err)
+		}
+	}
+
 	// Setup dump destination and open editor
 	logger.Verbose("Setting up dump destination for editor")
 	out, dumpPath, err := p.SetupDumpDestination()
@@ -292,6 +329,24 @@ func queryAction(ctx context.Context, cmd *cli.Command) error {
 	}
 	logger.Success("Documents dumped to file")
 
+	// Save session metadata after successful dump
+	logger.Verbose("Saving session metadata")
+	queryParams := pho.QueryParameters{
+		URI:        uri,
+		Database:   db,
+		Collection: collection,
+		Query:      query,
+		Limit:      limit,
+		Sort:       cmd.String("sort"),
+		Projection: cmd.String("projection"),
+	}
+
+	if err := p.SaveSession(ctx, queryParams); err != nil {
+		logger.Error("Failed to save session metadata: %s", err)
+		return fmt.Errorf("failed to save session metadata: %w", err)
+	}
+	logger.Success("Session metadata saved")
+
 	logger.Verbose("Opening editor: %s", editCommand)
 	if err := p.OpenEditor(editCommand, dumpPath); err != nil {
 		logger.Error("Failed to open editor: %s", err)
@@ -302,12 +357,12 @@ func queryAction(ctx context.Context, cmd *cli.Command) error {
 	return nil
 }
 
-// reviewAction handles reviewing changes
+// reviewAction handles reviewing changes.
 func reviewAction(ctx context.Context, cmd *cli.Command) error {
 	logger := createLogger(cmd)
-	
+
 	logger.Verbose("Starting review action")
-	
+
 	p := pho.NewApp(
 		pho.WithURI(prepareMongoURI(cmd.String("uri"), cmd.String("host"), cmd.String("port"))),
 		pho.WithDatabase(cmd.String("db")),
@@ -323,12 +378,12 @@ func reviewAction(ctx context.Context, cmd *cli.Command) error {
 	return nil
 }
 
-// applyAction handles applying changes to MongoDB
+// applyAction handles applying changes to MongoDB.
 func applyAction(ctx context.Context, cmd *cli.Command) error {
 	logger := createLogger(cmd)
-	
+
 	logger.Verbose("Starting apply action")
-	
+
 	p := pho.NewApp(
 		pho.WithURI(prepareMongoURI(cmd.String("uri"), cmd.String("host"), cmd.String("port"))),
 		pho.WithDatabase(cmd.String("db")),
@@ -358,7 +413,7 @@ func applyAction(ctx context.Context, cmd *cli.Command) error {
 	return nil
 }
 
-// parseExtJSONMode validates and returns the ExtJSON mode
+// parseExtJSONMode validates and returns the ExtJSON mode.
 func parseExtJSONMode(mode string) (render.ExtJSONMode, error) {
 	switch mode {
 	case "canonical":
@@ -368,8 +423,26 @@ func parseExtJSONMode(mode string) (render.ExtJSONMode, error) {
 	case "shell":
 		return render.ExtJSONModes.Shell, nil
 	default:
-		return render.ExtJSONModes.Canonical, fmt.Errorf("invalid extjson-mode: %s (valid options: canonical, relaxed, shell)", mode)
+		return render.ExtJSONModes.Canonical, fmt.Errorf(
+			"invalid extjson-mode: %s (valid options: canonical, relaxed, shell)",
+			mode,
+		)
 	}
+}
+
+// formatDuration formats a duration in a human-readable way.
+func formatDuration(d time.Duration) string {
+	if d < time.Minute {
+		return fmt.Sprintf("%.0f seconds", d.Seconds())
+	}
+	if d < time.Hour {
+		return fmt.Sprintf("%.0f minutes", d.Minutes())
+	}
+	if d < 24*time.Hour {
+		return fmt.Sprintf("%.1f hours", d.Hours())
+	}
+	const hoursPerDay = 24
+	return fmt.Sprintf("%.1f days", d.Hours()/hoursPerDay)
 }
 
 func prepareMongoURI(uri, host, port string) string {

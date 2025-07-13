@@ -1,7 +1,8 @@
-package restore
+package restore_test
 
 import (
 	"fmt"
+	"pho/internal/restore"
 	"reflect"
 	"testing"
 
@@ -74,7 +75,7 @@ func TestCloneBsonM(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := cloneBsonM(tt.input)
+			result := restore.CloneBsonM(tt.input)
 
 			// Check that values are equal
 			assert.True(t, reflect.DeepEqual(result, tt.expected))
@@ -97,7 +98,7 @@ func TestCloneBsonM_MutationSafety(t *testing.T) {
 		},
 	}
 
-	clone := cloneBsonM(original)
+	clone := restore.CloneBsonM(original)
 
 	// Modify the clone
 	clone["name"] = "modified"
@@ -122,7 +123,7 @@ func TestCloneBsonM_NestedMutationBehavior(t *testing.T) {
 		"array": []string{"a", "b"},
 	}
 
-	clone := cloneBsonM(original)
+	clone := restore.CloneBsonM(original)
 
 	// Modifying nested objects will affect both (shallow copy behavior)
 	if nested, ok := clone["nested"].(bson.M); ok {
@@ -131,10 +132,9 @@ func TestCloneBsonM_NestedMutationBehavior(t *testing.T) {
 
 	// This demonstrates shallow copy behavior - nested objects are shared
 	if originalNested, ok := original["nested"].(bson.M); ok {
-		if originalNested["inner"] != "modified" { //nolint: staticcheck
-			// This behavior depends on maps.Copy implementation
-			// If it changes in the future, this test documents the current behavior
-		}
+		// Document expected behavior: maps.Copy creates shallow copies
+		// so nested objects are shared between original and clone
+		_ = originalNested["inner"] // Access to document the expected behavior
 	}
 
 	// But top-level additions don't affect the original
@@ -146,20 +146,20 @@ func TestCloneBsonM_NestedMutationBehavior(t *testing.T) {
 func TestCloneBsonM_EmptyAndNilHandling(t *testing.T) {
 	// Test empty bson.M
 	empty := bson.M{}
-	clonedEmpty := cloneBsonM(empty)
+	clonedEmpty := restore.CloneBsonM(empty)
 
-	assert.Len(t, clonedEmpty, 0)
+	assert.Empty(t, clonedEmpty)
 
 	// Add to clone, shouldn't affect original
 	clonedEmpty["test"] = "value"
-	assert.Len(t, empty, 0)
+	assert.Empty(t, empty)
 
 	// Test nil input
 	var nilDoc bson.M
-	clonedNil := cloneBsonM(nilDoc)
+	clonedNil := restore.CloneBsonM(nilDoc)
 
 	assert.NotNil(t, clonedNil)
-	assert.Len(t, clonedNil, 0)
+	assert.Empty(t, clonedNil)
 }
 
 func TestCloneBsonM_TypePreservation(t *testing.T) {
@@ -175,7 +175,7 @@ func TestCloneBsonM_TypePreservation(t *testing.T) {
 		"map":    map[string]any{"key": "value"},
 	}
 
-	clone := cloneBsonM(original)
+	clone := restore.CloneBsonM(original)
 
 	for key, originalValue := range original {
 		cloneValue, exists := clone[key]
@@ -189,11 +189,11 @@ func TestCloneBsonM_TypePreservation(t *testing.T) {
 func TestCloneBsonM_CapacityOptimization(t *testing.T) {
 	// Test that the clone has appropriate capacity
 	large := make(bson.M, 100)
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		large[fmt.Sprintf("key%d", i)] = i
 	}
 
-	clone := cloneBsonM(large)
+	clone := restore.CloneBsonM(large)
 
 	assert.Len(t, clone, len(large))
 

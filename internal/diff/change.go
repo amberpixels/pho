@@ -9,7 +9,7 @@ import (
 
 // Change holds information about one document change
 // It stores data enough to perform the change
-// Note: we do not need original document state (as we perform only FullUpdates only)
+// Note: we do not need original document state (as we perform only FullUpdates only).
 type Change struct {
 	// Action that was applied
 	Action Action
@@ -38,7 +38,7 @@ func (ch *Change) IsEffective() bool {
 
 func (chs Changes) Len() int { return len(chs) }
 
-// Filter returns a filtered list of changes (by a given filter func)
+// Filter returns a filtered list of changes (by a given filter func).
 func (chs Changes) Filter(f func(*Change) bool) Changes {
 	var filtered Changes
 	for _, ch := range chs {
@@ -50,23 +50,23 @@ func (chs Changes) Filter(f func(*Change) bool) Changes {
 	return filtered
 }
 
-// FilterByAction returns a filtered list of changes by action type
+// FilterByAction returns a filtered list of changes by action type.
 func (chs Changes) FilterByAction(a Action) Changes {
 	return chs.Filter(func(change *Change) bool {
 		return change.Action == a
 	})
 }
 
-// EffectiveOnes is an alias for Filter(IsEffective)
+// EffectiveOnes is an alias for Filter(IsEffective).
 func (chs Changes) EffectiveOnes() Changes {
 	return chs.Filter(func(ch *Change) bool { return ch.IsEffective() })
 }
 
 // CalculateChanges calculates changes that represent difference between
-// given `source` hashed lines and `destination` list of current versions of documents
+// given `source` hashed lines and `destination` list of current versions of documents.
 func CalculateChanges(source map[string]*hashing.HashData, destination []bson.M) (Changes, error) {
 	n := len(destination)
-	changes := make(Changes, n)
+	changes := make(Changes, 0, n+len(source)) // Pre-allocate with capacity for worst case
 
 	// hashmap for documents that were processed
 	idsLUT := make(map[string]struct{})
@@ -86,18 +86,18 @@ func CalculateChanges(source map[string]*hashing.HashData, destination []bson.M)
 		// Check if not found in source, so it's a new document
 		hashDataBefore, ok := source[id]
 		if !ok {
-			changes[i] = NewChange(identifiedBy, identifierValue, ActionsDict.Added, doc)
+			changes = append(changes, NewChange(identifiedBy, identifierValue, ActionsDict.Added, doc))
 			continue
 		}
 
 		// Document was not change, so it's a nothing
 		if hashDataBefore.GetChecksum() == checksumAfter {
-			changes[i] = NewChange(identifiedBy, identifierValue, ActionsDict.Noop)
+			changes = append(changes, NewChange(identifiedBy, identifierValue, ActionsDict.Noop))
 			continue
 		}
 
 		// Otherwise it was an update:
-		changes[i] = NewChange(identifiedBy, identifierValue, ActionsDict.Updated, doc)
+		changes = append(changes, NewChange(identifiedBy, identifierValue, ActionsDict.Updated, doc))
 	}
 
 	// To get delete changes we have to do the other way round:

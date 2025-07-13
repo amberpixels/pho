@@ -1,7 +1,9 @@
-package hashing
+package hashing_test
 
 import (
 	"testing"
+
+	"pho/internal/hashing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -41,15 +43,15 @@ func TestNewIdentifierValue(t *testing.T) {
 			defer func() {
 				if r := recover(); r != nil {
 					if !tt.wantErr {
-						assert.Fail(t, "NewIdentifierValue() unexpected panic", r)
+						assert.Fail(t, "hashing.NewIdentifierValue() unexpected panic", r)
 					}
 				}
 			}()
 
-			id := NewIdentifierValue(tt.value)
+			id := hashing.NewIdentifierValue(tt.value)
 
 			if tt.wantErr {
-				assert.Fail(t, "NewIdentifierValue() expected panic, got success")
+				assert.Fail(t, "hashing.NewIdentifierValue() expected panic, got success")
 				return
 			}
 
@@ -79,7 +81,7 @@ func TestIdentifierValue_String(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			id := &IdentifierValue{Value: tt.value}
+			id := &hashing.IdentifierValue{Value: tt.value}
 			result := id.String()
 
 			assert.Equal(t, tt.expected, result)
@@ -134,7 +136,7 @@ func TestParseIdentifierValue(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := ParseIdentifierValue(tt.input)
+			result, err := hashing.ParseIdentifierValue(tt.input)
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -181,13 +183,13 @@ func TestIdentifierValue_RoundTrip(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create identifier value
-			original := &IdentifierValue{Value: tt.value}
+			original := &hashing.IdentifierValue{Value: tt.value}
 
 			// Convert to string
 			str := original.String()
 
 			// Parse back
-			parsed, err := ParseIdentifierValue(str)
+			parsed, err := hashing.ParseIdentifierValue(str)
 			require.NoError(t, err)
 
 			// Compare values
@@ -207,7 +209,7 @@ func TestIdentifierValue_RoundTrip(t *testing.T) {
 	}
 }
 
-// Helper function to create ObjectID from hex string, panics on error
+// Helper function to create ObjectID from hex string, panics on error.
 func mustObjectIDFromHex(hex string) primitive.ObjectID {
 	oid, err := primitive.ObjectIDFromHex(hex)
 	if err != nil {
