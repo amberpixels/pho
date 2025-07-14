@@ -7,13 +7,17 @@ MAIN_FILE := $(CMD_DIR)/main.go
 BINARY_NAME := pho
 INSTALL_DIR := $(shell go env GOPATH)/bin
 
+# Version can be set via git tag or environment variable
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+LDFLAGS := -X pho/internal/app.Version=$(VERSION)
+
 # Default target
 all: build
 
 .PHONY: build
 build:
 	@mkdir -p $(BUILD_DIR)
-	@go build -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_FILE)
+	@go build -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_FILE)
 
 # Run the git-undo binary
 .PHONY: run
@@ -42,7 +46,7 @@ lint:
 .PHONY: install
 install:
 	@echo "Installing pho to $(INSTALL_DIR)..."
-	@go install $(CMD_DIR)
+	@go install -ldflags "$(LDFLAGS)" $(CMD_DIR)
 	@echo "✓ Successfully installed pho to $(INSTALL_DIR)/$(BINARY_NAME)"
 	@echo "Make sure $(INSTALL_DIR) is in your PATH to use 'pho' from anywhere"
 

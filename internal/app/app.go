@@ -19,6 +19,11 @@ const (
 	defaultDocumentLimit = 10000 // Default limit for document retrieval
 )
 
+var (
+	// Version is injected via ldflags during build
+	Version = "dev"
+)
+
 // App represents the CLI application.
 type App struct {
 	cmd *cli.Command
@@ -54,6 +59,13 @@ Examples:
   # Apply changes to database
   pho apply`,
 			Commands: []*cli.Command{
+				{
+					Name:    "version",
+					Aliases: []string{"v"},
+					Usage:   "Show version information",
+					Description: "Display the current version of pho",
+					Action:  versionAction,
+				},
 				{
 					Name:    "query",
 					Aliases: []string{"q"},
@@ -92,7 +104,7 @@ This will execute the actual database operations.`,
 				},
 			},
 			Flags:  getCommonFlags(),
-			Action: queryAction, // Default action when no subcommand is specified
+			Action: defaultAction, // Default action when no subcommand is specified
 		},
 	}
 }
@@ -666,4 +678,40 @@ func prepareMongoURI(uri, host, port string) string {
 	}
 
 	return result
+}
+
+// versionAction handles the version command.
+func versionAction(ctx context.Context, cmd *cli.Command) error {
+	fmt.Printf("pho version %s\n", Version)
+	return nil
+}
+
+// defaultAction handles when no subcommand is specified or unknown commands are used.
+func defaultAction(ctx context.Context, cmd *cli.Command) error {
+	// Check if there are any arguments beyond the program name
+	args := cmd.Args()
+	if args.Len() > 0 {
+		// Unknown command was specified
+		unknownCmd := args.First()
+		fmt.Fprintf(os.Stderr, "Error: unknown command '%s'\n\n", unknownCmd)
+		fmt.Fprintf(os.Stderr, "Run 'pho --help' for usage.\n")
+		return fmt.Errorf("unknown command: %s", unknownCmd)
+	}
+
+	// No subcommand specified, check if we have enough info to run a query
+	if cmd.String("db") == "" {
+		fmt.Fprintf(os.Stderr, "Error: database name is required\n\n")
+		fmt.Fprintf(os.Stderr, "Usage: pho [command] [options]\n\n")
+		fmt.Fprintf(os.Stderr, "Available commands:\n")
+		fmt.Fprintf(os.Stderr, "  query    Query MongoDB and save for editing\n")
+		fmt.Fprintf(os.Stderr, "  edit     Edit documents from previous query\n")
+		fmt.Fprintf(os.Stderr, "  review   Review changes made to documents\n")
+		fmt.Fprintf(os.Stderr, "  apply    Apply changes to MongoDB\n")
+		fmt.Fprintf(os.Stderr, "  version  Show version information\n\n")
+		fmt.Fprintf(os.Stderr, "Run 'pho --help' for detailed usage information.\n")
+		return fmt.Errorf("database name is required")
+	}
+
+	// If database is specified, run the query action (default behavior)
+	return queryAction(ctx, cmd)
 }
