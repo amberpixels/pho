@@ -108,6 +108,11 @@ func CalculateChanges(source map[string]*hashing.HashData, destination []bson.M)
 			continue
 		}
 
+		// Skip if hashData is nil or malformed
+		if hashData == nil {
+			continue
+		}
+
 		// we can either parse sourceDocIdentifier
 		// or take it again from hashData
 		identifiedBy, identifierValue := hashData.GetIdentifierParts()

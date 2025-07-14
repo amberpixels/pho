@@ -16,14 +16,14 @@ const (
 )
 
 type HashData struct {
-	// identifiedBy stores the field, which data is identified by
-	identifiedBy string
+	// IdentifiedBy stores the field, which data is identified by
+	IdentifiedBy string `json:"identified_by"`
 
-	// identifierValue currently can be a string or ObjectID
-	identifierValue *IdentifierValue
+	// IdentifierValue currently can be a string or ObjectID
+	IdentifierValue *IdentifierValue `json:"identifier_value"`
 
-	// checksum of the whole doc
-	checksum string
+	// Checksum of the whole doc
+	Checksum string `json:"checksum"`
 }
 
 // Hash performs hashing of the given db object
@@ -62,26 +62,29 @@ func Hash(result bson.M) (*HashData, error) {
 	}
 
 	return &HashData{
-		identifiedBy:    identifiedBy,
-		identifierValue: identifierValue,
-		checksum:        checksum,
+		IdentifiedBy:    identifiedBy,
+		IdentifierValue: identifierValue,
+		Checksum:        checksum,
 	}, nil
 }
 
 func (h *HashData) GetIdentifierParts() (string, any) {
-	return h.identifiedBy, h.identifierValue.Value
+	if h.IdentifierValue == nil {
+		return h.IdentifiedBy, nil
+	}
+	return h.IdentifiedBy, h.IdentifierValue.Value
 }
 
 func (h *HashData) GetIdentifier() string {
-	return h.identifiedBy + IdentifierSeparator + h.identifierValue.String()
+	return h.IdentifiedBy + IdentifierSeparator + h.IdentifierValue.String()
 }
 
 func (h *HashData) GetChecksum() string {
-	return h.checksum
+	return h.Checksum
 }
 
 func (h *HashData) String() string {
-	return h.GetIdentifier() + ChecksumSeparator + h.checksum
+	return h.GetIdentifier() + ChecksumSeparator + h.Checksum
 }
 
 func Parse(hashStr string) (*HashData, error) {
@@ -101,8 +104,8 @@ func Parse(hashStr string) (*HashData, error) {
 	}
 
 	return &HashData{
-		identifiedBy:    identifiedBy,
-		identifierValue: identifierValue,
-		checksum:        checksum,
+		IdentifiedBy:    identifiedBy,
+		IdentifierValue: identifierValue,
+		Checksum:        checksum,
 	}, nil
 }

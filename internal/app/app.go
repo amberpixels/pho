@@ -35,15 +35,18 @@ func New() *App {
 Core workflow:
 1. Query - Connect to MongoDB and query documents with filters/projections
 2. Edit - Dump documents to temporary files and open in editor (vim, etc.)
-3. Diff - Compare original vs edited documents to detect changes
+3. Review - Compare original vs edited documents to detect changes
 4. Apply - Execute changes back to MongoDB or generate shell commands
 
 Examples:
-  # Query and edit documents
-  pho --db mydb --collection users --query '{"active": true}' --edit vim
+  # Query and save for later editing (default)
+  pho --db mydb --collection users --query '{"active": true}'
 
-  # Just output to stdout without editing
-  pho --db mydb --collection users --query '{"active": true}' --edit ""
+  # Query and immediately open editor
+  pho --db mydb --collection users --query '{"active": true}' --edit
+
+  # Edit documents from previous query
+  pho edit
 
   # Review changes after editing
   pho review
@@ -54,11 +57,20 @@ Examples:
 				{
 					Name:    "query",
 					Aliases: []string{"q"},
-					Usage:   "Query MongoDB and optionally edit documents",
-					Description: `Query MongoDB documents and optionally open them in an editor for modification.
-This is the default command when no subcommand is specified.`,
+					Usage:   "Query MongoDB and save for later editing (default behavior)",
+					Description: `Query MongoDB documents and save them for later editing.
+This is the default command when no subcommand is specified. Use --edit to immediately open editor after query.`,
 					Action: queryAction,
 					Flags:  getCommonFlags(),
+				},
+				{
+					Name:    "edit",
+					Aliases: []string{"e"},
+					Usage:   "Edit documents from previous query session",
+					Description: `Open the editor with documents from the most recent query session.
+Use this after running query with --edit-later flag.`,
+					Action: editAction,
+					Flags:  getEditFlags(),
 				},
 				{
 					Name:    "review",
@@ -67,7 +79,7 @@ This is the default command when no subcommand is specified.`,
 					Description: `Review changes that have been made to documents in the editor.
 Shows a diff of what will be changed without applying the changes.`,
 					Action: reviewAction,
-					Flags:  getConnectionFlags(),
+					Flags:  getReviewFlags(),
 				},
 				{
 					Name:    "apply",
@@ -129,6 +141,78 @@ func getConnectionFlags() []cli.Flag {
 	}
 }
 
+// getEditFlags returns flags for the edit command.
+func getEditFlags() []cli.Flag {
+	return []cli.Flag{
+		&cli.StringFlag{
+			Name:    "editor",
+			Aliases: []string{"e"},
+			Value:   "vim",
+			Usage:   "Editor command to use for editing documents",
+		},
+		&cli.StringFlag{
+			Name:    "extjson-mode",
+			Aliases: []string{"m"},
+			Value:   "canonical",
+			Usage:   "ExtJSON output mode: canonical, relaxed, or shell",
+		},
+		&cli.BoolFlag{
+			Name:    "compact",
+			Aliases: []string{"C"},
+			Usage:   "Use compact JSON output (no indentation)",
+		},
+		&cli.BoolFlag{
+			Name:    "line-numbers",
+			Aliases: []string{"n"},
+			Value:   true,
+			Usage:   "Show line numbers in output",
+		},
+		&cli.BoolFlag{
+			Name:    "verbose",
+			Aliases: []string{"v"},
+			Usage:   "Enable verbose output with detailed progress information",
+		},
+		&cli.BoolFlag{
+			Name:    "quiet",
+			Aliases: []string{"Q"},
+			Usage:   "Suppress all non-essential output (quiet mode)",
+		},
+	}
+}
+
+// getReviewFlags returns flags for the review command.
+func getReviewFlags() []cli.Flag {
+	return []cli.Flag{
+		&cli.StringFlag{
+			Name:    "extjson-mode",
+			Aliases: []string{"m"},
+			Value:   "canonical",
+			Usage:   "ExtJSON output mode: canonical, relaxed, or shell",
+		},
+		&cli.BoolFlag{
+			Name:    "compact",
+			Aliases: []string{"C"},
+			Usage:   "Use compact JSON output (no indentation)",
+		},
+		&cli.BoolFlag{
+			Name:    "line-numbers",
+			Aliases: []string{"n"},
+			Value:   true,
+			Usage:   "Show line numbers in output",
+		},
+		&cli.BoolFlag{
+			Name:    "verbose",
+			Aliases: []string{"v"},
+			Usage:   "Enable verbose output with detailed progress information",
+		},
+		&cli.BoolFlag{
+			Name:    "quiet",
+			Aliases: []string{"Q"},
+			Usage:   "Suppress all non-essential output (quiet mode)",
+		},
+	}
+}
+
 // getCommonFlags returns all flags including connection and query flags.
 func getCommonFlags() []cli.Flag {
 	connectionFlags := getConnectionFlags()
@@ -154,10 +238,14 @@ func getCommonFlags() []cli.Flag {
 			Usage: "Projection for documents (JSON format, e.g. '{\"field\": 1}')",
 		},
 		&cli.StringFlag{
-			Name:    "edit",
+			Name:    "editor",
 			Aliases: []string{"e"},
 			Value:   "vim",
 			Usage:   "Editor command to use for editing documents",
+		},
+		&cli.BoolFlag{
+			Name:  "edit",
+			Usage: "Immediately open editor after query (combines query+edit stages)",
 		},
 		&cli.StringFlag{
 			Name:    "extjson-mode",
@@ -259,18 +347,8 @@ func queryAction(ctx context.Context, cmd *cli.Command) error {
 	defer cursor.Close(ctx)
 	logger.Success("Query executed successfully")
 
-	editCommand := cmd.String("edit")
-
-	// When not in --edit mode, simply output to stdout
-	if editCommand == "" {
-		logger.Verbose("Outputting results to stdout")
-		if err := p.Dump(ctx, cursor, os.Stdout); err != nil {
-			logger.Error("Failed to dump output: %s", err)
-			return fmt.Errorf("failed on dumping: %w", err)
-		}
-		logger.Success("Results output completed")
-		return nil
-	}
+	// Determine the workflow based on flags
+	editImmediately := cmd.Bool("edit")
 
 	// Check for existing session before starting edit workflow
 	hasSession, existingSession, err := p.HasActiveSession(ctx)
@@ -303,8 +381,8 @@ func queryAction(ctx context.Context, cmd *cli.Command) error {
 		}
 	}
 
-	// Setup dump destination and open editor
-	logger.Verbose("Setting up dump destination for editor")
+	// Setup dump destination
+	logger.Verbose("Setting up dump destination")
 	out, dumpPath, err := p.SetupDumpDestination()
 	if err != nil {
 		logger.Error("Failed to setup dump destination: %s", err)
@@ -338,6 +416,74 @@ func queryAction(ctx context.Context, cmd *cli.Command) error {
 	}
 	logger.Success("Session metadata saved")
 
+	// Default behavior: save for later editing
+	if !editImmediately {
+		logger.Success("Query results saved for later editing. Use 'pho edit' to open editor.")
+		return nil
+	}
+
+	// When --edit flag is used, immediately open editor
+	editCommand := cmd.String("editor")
+	logger.Verbose("Opening editor: %s", editCommand)
+	if err := p.OpenEditor(editCommand, dumpPath); err != nil {
+		logger.Error("Failed to open editor: %s", err)
+		return fmt.Errorf("failed on opening [%s]: %w", editCommand, err)
+	}
+	logger.Success("Editor session completed")
+
+	return nil
+}
+
+// editAction handles opening editor for existing session.
+func editAction(ctx context.Context, cmd *cli.Command) error {
+	logger := createLogger(cmd)
+
+	logger.Verbose("Starting edit action")
+
+	// Parse and validate ExtJSON mode (needed for renderer)
+	extjsonModeStr := cmd.String("extjson-mode")
+	if extjsonModeStr == "" {
+		extjsonModeStr = "canonical" // default value
+	}
+	extjsonMode, err := parseExtJSONMode(extjsonModeStr)
+	if err != nil {
+		logger.Error("Invalid ExtJSON mode: %s", err)
+		return err
+	}
+
+	// Create pho app with renderer configuration
+	p := pho.NewApp(
+		pho.WithRenderer(render.NewRenderer(
+			render.WithExtJSONMode(extjsonMode),
+			render.WithShowLineNumbers(cmd.Bool("line-numbers")),
+			render.WithCompactJSON(cmd.Bool("compact")),
+		)),
+	)
+
+	// Check if there's an active session
+	hasSession, existingSession, err := p.HasActiveSession(ctx)
+	if err != nil {
+		logger.Error("Failed to check for existing session: %s", err)
+		return fmt.Errorf("failed to check for existing session: %w", err)
+	}
+
+	if !hasSession {
+		logger.Error("No active session found")
+		return fmt.Errorf("no active session found. Run 'pho query --edit-later' first to create a session")
+	}
+
+	logger.Verbose("Found active session (created %s ago)", formatDuration(existingSession.Age()))
+	logger.Debug("Session: db=%s collection=%s query=%s",
+		existingSession.QueryParams.Database,
+		existingSession.QueryParams.Collection,
+		existingSession.QueryParams.Query)
+
+	// Get existing dump file path from session (don't create new file)
+	dumpPath := fmt.Sprintf("%s/%s", p.GetPhoDir(), existingSession.DumpFile)
+	logger.Debug("Using existing dump file: %s", dumpPath)
+
+	// Open editor with existing dump file
+	editCommand := cmd.String("editor")
 	logger.Verbose("Opening editor: %s", editCommand)
 	if err := p.OpenEditor(editCommand, dumpPath); err != nil {
 		logger.Error("Failed to open editor: %s", err)
@@ -354,11 +500,43 @@ func reviewAction(ctx context.Context, cmd *cli.Command) error {
 
 	logger.Verbose("Starting review action")
 
+	// Parse and validate ExtJSON mode (needed for renderer)
+	extjsonModeStr := cmd.String("extjson-mode")
+	if extjsonModeStr == "" {
+		extjsonModeStr = "canonical" // default value
+	}
+	extjsonMode, err := parseExtJSONMode(extjsonModeStr)
+	if err != nil {
+		logger.Error("Invalid ExtJSON mode: %s", err)
+		return err
+	}
+
+	// Create pho app with renderer configuration
 	p := pho.NewApp(
-		pho.WithURI(prepareMongoURI(cmd.String("uri"), cmd.String("host"), cmd.String("port"))),
-		pho.WithDatabase(cmd.String("db")),
-		pho.WithCollection(cmd.String("collection")),
+		pho.WithRenderer(render.NewRenderer(
+			render.WithExtJSONMode(extjsonMode),
+			render.WithShowLineNumbers(cmd.Bool("line-numbers")),
+			render.WithCompactJSON(cmd.Bool("compact")),
+		)),
 	)
+
+	// Check if there's an active session and load metadata
+	hasSession, _, err := p.HasActiveSession(ctx)
+	if err != nil {
+		logger.Error("Failed to check for existing session: %s", err)
+		return fmt.Errorf("failed to check for existing session: %w", err)
+	}
+
+	if !hasSession {
+		logger.Error("No active session found")
+		return fmt.Errorf("no active session found. Run 'pho query' first to create a session")
+	}
+
+	// Load session metadata to configure the app
+	if err := p.ConnectDBForApply(ctx); err != nil {
+		logger.Error("Failed to load session configuration: %s", err)
+		return fmt.Errorf("failed to load session configuration: %w", err)
+	}
 
 	logger.Verbose("Reviewing changes in documents")
 	if err := p.ReviewChanges(ctx); err != nil {
@@ -375,18 +553,25 @@ func applyAction(ctx context.Context, cmd *cli.Command) error {
 
 	logger.Verbose("Starting apply action")
 
-	p := pho.NewApp(
-		pho.WithURI(prepareMongoURI(cmd.String("uri"), cmd.String("host"), cmd.String("port"))),
-		pho.WithDatabase(cmd.String("db")),
-		pho.WithCollection(cmd.String("collection")),
-	)
+	p := pho.NewApp()
+
+	// Check if there's an active session
+	hasSession, _, err := p.HasActiveSession(ctx)
+	if err != nil {
+		logger.Error("Failed to check for existing session: %s", err)
+		return fmt.Errorf("failed to check for existing session: %w", err)
+	}
+
+	if !hasSession {
+		logger.Error("No active session found")
+		return fmt.Errorf("no active session found. Run 'pho query' first to create a session")
+	}
 
 	// Setup context with signal handling
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt)
 	defer stop()
 
-	// For apply changes, we need to connect to the database using stored metadata
-	// or command line parameters if metadata is not available
+	// Connect to database using stored session metadata
 	logger.Verbose("Connecting to database for applying changes")
 	if err := p.ConnectDBForApply(ctx); err != nil {
 		logger.Error("Failed to connect to database for apply: %s", err)

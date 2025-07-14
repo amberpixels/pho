@@ -18,7 +18,7 @@ func TestNew(t *testing.T) {
 	require.NotNil(t, cmd)
 	assert.Equal(t, "pho", cmd.Name)
 	assert.Equal(t, "MongoDB document editor - query, edit, and apply changes interactively", cmd.Usage)
-	assert.Len(t, cmd.Commands, 3)
+	assert.Len(t, cmd.Commands, 4)
 }
 
 func TestParseExtJSONMode(t *testing.T) {
@@ -230,7 +230,7 @@ func TestGetConnectionFlags(t *testing.T) {
 
 func TestGetCommonFlags(t *testing.T) {
 	flags := app.GetCommonFlags()
-	assert.Len(t, flags, 15) // 5 connection flags + 10 query flags
+	assert.Len(t, flags, 16) // 5 connection flags + 11 query flags
 
 	flagNames := make([]string, len(flags))
 	for i, flag := range flags {
@@ -239,7 +239,7 @@ func TestGetCommonFlags(t *testing.T) {
 
 	expectedFlags := []string{
 		"uri", "host", "port", "db", "collection", // connection flags
-		"query", "limit", "sort", "projection", "edit", "extjson-mode", "compact", "line-numbers", "verbose", "quiet", // query flags
+		"query", "limit", "sort", "projection", "editor", "edit", "extjson-mode", "compact", "line-numbers", "verbose", "quiet", // query flags
 	}
 	for _, expected := range expectedFlags {
 		assert.Contains(t, flagNames, expected, "Flag %s should be present", expected)

@@ -10,7 +10,7 @@ import (
 // IdentifierValue stores the X value of `{_id:X}` identifying pair.
 type IdentifierValue struct {
 	// Value possibly now: string | primitive.ObjectID
-	Value any
+	Value any `json:"value"`
 }
 
 func NewIdentifierValue(v any) *IdentifierValue {

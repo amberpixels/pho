@@ -209,7 +209,7 @@ func (app *App) Dump(ctx context.Context, cursor *mongo.Cursor, out io.Writer) e
 
 				return fmt.Errorf("failed on hashing line [%d]: %w", lineNumber, err)
 			}
-			metadata.Lines[resultHashData.String()] = resultHashData
+			metadata.Lines[resultHashData.GetIdentifier()] = resultHashData
 		}
 
 		resultBytes, err := app.render.FormatResult(result)
@@ -246,6 +246,11 @@ func (app *App) Dump(ctx context.Context, cursor *mongo.Cursor, out io.Writer) e
 	}
 
 	return nil
+}
+
+// GetPhoDir returns the pho directory path.
+func (app *App) GetPhoDir() string {
+	return phoDir
 }
 
 // setupPhoDir ensures .pho directory exists or creates it.
