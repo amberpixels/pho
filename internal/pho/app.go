@@ -15,6 +15,7 @@ import (
 	"pho/internal/restore"
 	"pho/pkg/jsonl"
 	"strings"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -22,9 +23,10 @@ import (
 )
 
 const (
-	phoDir      = ".pho"
-	phoMetaFile = "_meta"
-	phoDumpBase = "_dump" // Base filename without extension
+	phoDir            = ".pho"
+	phoMetaFile       = "_meta"
+	phoDumpBase       = "_dump"                // Base filename without extension
+	connectionTimeout = 500 * time.Millisecond // Timeout for connection preflight check
 )
 
 var (
@@ -82,10 +84,26 @@ func (app *App) ConnectDB(ctx context.Context) error {
 		return errors.New("collection name is required")
 	}
 
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI(app.uri))
+	clientOpts := options.Client().
+		ApplyURI(app.uri).
+		SetServerSelectionTimeout(connectionTimeout).
+		SetConnectTimeout(connectionTimeout)
+
+	client, err := mongo.Connect(ctx, clientOpts)
 	if err != nil {
 		return err
 	}
+
+	// Perform preflight connection check with shorter timeout
+	pingCtx, cancel := context.WithTimeout(context.Background(), connectionTimeout)
+	defer cancel()
+
+	if err := client.Ping(pingCtx, nil); err != nil {
+		// Close the client if ping fails
+		client.Disconnect(ctx)
+		return fmt.Errorf("failed to connect to MongoDB: %w", err)
+	}
+
 	app.dbClient = client
 	return nil
 }
@@ -96,9 +114,24 @@ func (app *App) ConnectDBForApply(ctx context.Context) error {
 	metadata, err := app.readMeta(ctx)
 	if err == nil && metadata.URI != "" && metadata.Database != "" && metadata.Collection != "" {
 		// Use connection details from metadata
-		client, err := mongo.Connect(ctx, options.Client().ApplyURI(metadata.URI))
+		clientOpts := options.Client().
+			ApplyURI(metadata.URI).
+			SetServerSelectionTimeout(connectionTimeout).
+			SetConnectTimeout(connectionTimeout)
+
+		client, err := mongo.Connect(ctx, clientOpts)
 		if err != nil {
 			return fmt.Errorf("failed connecting with metadata URI: %w", err)
+		}
+
+		// Perform preflight connection check with shorter timeout
+		pingCtx, cancel := context.WithTimeout(context.Background(), connectionTimeout)
+		defer cancel()
+
+		if err := client.Ping(pingCtx, nil); err != nil {
+			// Close the client if ping fails
+			client.Disconnect(ctx)
+			return fmt.Errorf("failed to connect to MongoDB: %w", err)
 		}
 
 		app.dbClient = client

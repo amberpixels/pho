@@ -127,7 +127,9 @@ func (l *Logger) Success(format string, args ...any) {
 		return
 	}
 
-	fmt.Fprintf(l.output, "✓ %s\n", fmt.Sprintf(format, args...))
+	green := "\033[32m"
+	reset := "\033[0m"
+	fmt.Fprintf(l.output, "%s✓ %s%s\n", green, fmt.Sprintf(format, args...), reset)
 }
 
 // Warning logs a warning message (shown in normal and verbose modes).
@@ -135,5 +137,7 @@ func (l *Logger) Warning(format string, args ...any) {
 	if l.level < LevelNormal {
 		return
 	}
-	fmt.Fprintf(l.output, "⚠ Warning: %s\n", fmt.Sprintf(format, args...))
+	yellow := "\033[33m"
+	reset := "\033[0m"
+	fmt.Fprintf(l.output, "%s⚠️  Warning: %s%s\n", yellow, fmt.Sprintf(format, args...), reset)
 }

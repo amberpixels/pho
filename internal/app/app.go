@@ -60,11 +60,11 @@ Examples:
   pho apply`,
 			Commands: []*cli.Command{
 				{
-					Name:    "version",
-					Aliases: []string{"v"},
-					Usage:   "Show version information",
+					Name:        "version",
+					Aliases:     []string{"v"},
+					Usage:       "Show version information",
 					Description: "Display the current version of pho",
-					Action:  versionAction,
+					Action:      versionAction,
 				},
 				{
 					Name:    "query",
@@ -340,8 +340,11 @@ func queryAction(ctx context.Context, cmd *cli.Command) error {
 	// Connect to database
 	logger.Verbose("Connecting to MongoDB database")
 	if err := p.ConnectDB(ctx); err != nil {
-		logger.Error("Failed to connect to database: %s", err)
-		return fmt.Errorf("failed on connecting to db: %w", err)
+		// Check if this is a connection error that needs formatting
+		if strings.Contains(err.Error(), "failed to connect to MongoDB") {
+			return formatConnectionError(uri, err)
+		}
+		return err
 	}
 	defer p.Close(ctx)
 	logger.Success("Connected to MongoDB database")
@@ -546,8 +549,15 @@ func reviewAction(ctx context.Context, cmd *cli.Command) error {
 
 	// Load session metadata to configure the app
 	if err := p.ConnectDBForApply(ctx); err != nil {
-		logger.Error("Failed to load session configuration: %s", err)
-		return fmt.Errorf("failed to load session configuration: %w", err)
+		// Check if this is a connection error that needs formatting
+		if strings.Contains(err.Error(), "failed to connect to MongoDB") {
+			// For review action, we need to get the URI from session metadata
+			if hasSession, existingSession, sessionErr := p.HasActiveSession(ctx); sessionErr == nil && hasSession {
+				return formatConnectionError(existingSession.QueryParams.URI, err)
+			}
+			return formatConnectionError("mongodb://localhost:27017", err) // fallback
+		}
+		return err
 	}
 
 	logger.Verbose("Reviewing changes in documents")
@@ -586,8 +596,16 @@ func applyAction(ctx context.Context, cmd *cli.Command) error {
 	// Connect to database using stored session metadata
 	logger.Verbose("Connecting to database for applying changes")
 	if err := p.ConnectDBForApply(ctx); err != nil {
-		logger.Error("Failed to connect to database for apply: %s", err)
-		return fmt.Errorf("failed on connecting to db for apply: %w", err)
+		// Check if this is a connection error that needs formatting
+		if strings.Contains(err.Error(), "failed to connect to MongoDB") {
+			// For apply action, we need to get the URI from session metadata
+			if hasSession, existingSession, sessionErr := p.HasActiveSession(ctx); sessionErr == nil && hasSession {
+				return formatConnectionError(existingSession.QueryParams.URI, err)
+			}
+			// TODO: unhardcoded default mongo connection, it should be part of filling args
+			return formatConnectionError("mongodb://localhost:27017", err) // fallback
+		}
+		return err
 	}
 	defer p.Close(ctx)
 	logger.Success("Connected to database")
@@ -678,6 +696,41 @@ func prepareMongoURI(uri, host, port string) string {
 	}
 
 	return result
+}
+
+// formatConnectionError creates a user-friendly error message for connection failures.
+func formatConnectionError(uri string, err error) error {
+	errStr := strings.ToLower(err.Error())
+
+	// ANSI color codes
+	red := "\033[31m"
+	yellow := "\033[33m"
+	reset := "\033[0m"
+
+	// Check for common connection issues and provide helpful messages
+	if strings.Contains(errStr, "connection refused") {
+		return fmt.Errorf("%s❌ Cannot connect to MongoDB at %s%s%s - is MongoDB running?",
+			red, yellow, uri, reset)
+	}
+
+	if strings.Contains(errStr, "no such host") || strings.Contains(errStr, "name resolution") {
+		return fmt.Errorf("%s❌ Cannot connect to MongoDB at %s%s%s - check the hostname",
+			red, yellow, uri, reset)
+	}
+
+	if strings.Contains(errStr, "timeout") || strings.Contains(errStr, "deadline exceeded") {
+		return fmt.Errorf("%s❌ Cannot connect to MongoDB at %s%s%s - check network/firewall",
+			red, yellow, uri, reset)
+	}
+
+	if strings.Contains(errStr, "authentication") || strings.Contains(errStr, "auth") {
+		return fmt.Errorf("%s❌ Cannot connect to MongoDB at %s%s%s - check credentials",
+			red, yellow, uri, reset)
+	}
+
+	// For any other error, show a generic message with the URI
+	return fmt.Errorf("%s❌ Cannot connect to MongoDB at %s%s%s - %v",
+		red, yellow, uri, reset, err)
 }
 
 // versionAction handles the version command.
