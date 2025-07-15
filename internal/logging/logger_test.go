@@ -97,7 +97,7 @@ func TestLogger_NormalMode(t *testing.T) {
 	assert.Contains(t, output, "info message")
 	assert.Contains(t, output, "progress message")
 	assert.Contains(t, output, "✓ success message")
-	assert.Contains(t, output, "⚠ Warning: warning message")
+	assert.Contains(t, output, "⚠️  Warning: warning message")
 
 	// Should NOT show verbose or debug
 	assert.NotContains(t, output, "verbose message")
@@ -128,7 +128,7 @@ func TestLogger_VerboseMode(t *testing.T) {
 	assert.Contains(t, output, "verbose message")
 	assert.Contains(t, output, "progress message")
 	assert.Contains(t, output, "✓ success message")
-	assert.Contains(t, output, "⚠ Warning: warning message")
+	assert.Contains(t, output, "⚠️  Warning: warning message")
 	assert.Contains(t, output, "DEBUG] debug message")
 
 	// Timestamps should be present in verbose and debug messages

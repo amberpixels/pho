@@ -61,8 +61,8 @@ func TestApp_SaveAndLoadSession(t *testing.T) {
 	err := app.SaveSession(ctx, queryParams)
 	require.NoError(t, err)
 
-	// Verify session file exists
-	sessionPath := filepath.Join(phoDir, pho.GetPhoSessionFile())
+	// Verify session.conf file exists
+	sessionPath := filepath.Join(phoDir, pho.GetPhoSessionConf())
 	assert.FileExists(t, sessionPath)
 
 	// Test loading session
@@ -70,7 +70,6 @@ func TestApp_SaveAndLoadSession(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, session)
 
-	assert.Equal(t, pho.SessionStatusActive, session.Status)
 	assert.Equal(t, queryParams.Database, session.QueryParams.Database)
 	assert.Equal(t, queryParams.Collection, session.QueryParams.Collection)
 	assert.Equal(t, queryParams.Query, session.QueryParams.Query)
@@ -111,7 +110,7 @@ func TestApp_ClearSession(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify session exists
-	sessionPath := filepath.Join(phoDir, pho.GetPhoSessionFile())
+	sessionPath := filepath.Join(phoDir, pho.GetPhoSessionConf())
 	assert.FileExists(t, sessionPath)
 
 	// Clear session
@@ -151,38 +150,6 @@ func TestApp_HasActiveSession(t *testing.T) {
 	assert.True(t, hasSession)
 	require.NotNil(t, session)
 	assert.Equal(t, "testdb", session.QueryParams.Database)
-}
-
-func TestApp_UpdateSessionStatus(t *testing.T) {
-	tempDir := t.TempDir()
-	t.Chdir(tempDir)
-
-	app := pho.NewApp()
-	ctx := context.Background()
-
-	// Test updating status with no session
-	err := app.UpdateSessionStatus(ctx, pho.SessionStatusModified)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "no active session found")
-
-	// Create session
-	queryParams := pho.QueryParameters{
-		Database:   "testdb",
-		Collection: "users",
-		Query:      "{}",
-		Limit:      100,
-	}
-	err = app.SaveSession(ctx, queryParams)
-	require.NoError(t, err)
-
-	// Update status
-	err = app.UpdateSessionStatus(ctx, pho.SessionStatusModified)
-	require.NoError(t, err)
-
-	// Verify status was updated
-	session, err := app.LoadSession(ctx)
-	require.NoError(t, err)
-	assert.Equal(t, pho.SessionStatusModified, session.Status)
 }
 
 func TestApp_ValidateSession(t *testing.T) {

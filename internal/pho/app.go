@@ -24,7 +24,8 @@ import (
 
 const (
 	phoDir            = ".pho"
-	phoMetaFile       = "_meta"
+	phoMetaFile       = "_meta"                // Legacy meta file
+	phoSessionConf    = "session.conf"         // New unified session config file
 	phoDumpBase       = "_dump"                // Base filename without extension
 	connectionTimeout = 500 * time.Millisecond // Timeout for connection preflight check
 )
@@ -100,7 +101,7 @@ func (app *App) ConnectDB(ctx context.Context) error {
 
 	if err := client.Ping(pingCtx, nil); err != nil {
 		// Close the client if ping fails
-		client.Disconnect(ctx)
+		_ = client.Disconnect(ctx)
 		return fmt.Errorf("failed to connect to MongoDB: %w", err)
 	}
 
@@ -129,8 +130,7 @@ func (app *App) ConnectDBForApply(ctx context.Context) error {
 		defer cancel()
 
 		if err := client.Ping(pingCtx, nil); err != nil {
-			// Close the client if ping fails
-			client.Disconnect(ctx)
+			_ = client.Disconnect(ctx)
 			return fmt.Errorf("failed to connect to MongoDB: %w", err)
 		}
 
@@ -303,21 +303,49 @@ func (app *App) setupPhoDir() error {
 	return nil
 }
 
-// writeMetadata writes metadata to the JSON-based metadata file.
+// writeMetadata writes metadata to the unified session.conf file.
 func (app *App) writeMetadata(metadata *ParsedMeta) error {
 	if err := app.setupPhoDir(); err != nil {
 		return err
 	}
 
-	destinationPath := filepath.Join(phoDir, phoMetaFile)
+	// Check if session.conf already exists to merge with existing data
+	sessionPath := filepath.Join(phoDir, phoSessionConf)
+	sessionConfig := &SessionConfig{}
 
-	data, err := metadata.ToJSON()
-	if err != nil {
-		return fmt.Errorf("failed marshaling metadata: %w", err)
+	if data, err := os.ReadFile(sessionPath); err == nil {
+		// Session config exists, parse it
+		if err := sessionConfig.FromSessionConf(data); err != nil {
+			return fmt.Errorf("failed to parse existing session config: %w", err)
+		}
+	} else {
+		// No existing session config, this shouldn't happen in normal flow
+		// but let's handle it gracefully by creating a minimal config
+		sessionConfig = &SessionConfig{
+			URI:        metadata.URI,
+			Database:   metadata.Database,
+			Collection: metadata.Collection,
+			Lines:      make(map[string]*hashing.HashData),
+		}
 	}
 
-	if err := os.WriteFile(destinationPath, data, 0600); err != nil {
-		return fmt.Errorf("failed writing metadata file: %w", err)
+	// Update only the metadata-specific fields, preserve session fields
+	sessionConfig.URI = metadata.URI
+	sessionConfig.Database = metadata.Database
+	sessionConfig.Collection = metadata.Collection
+	sessionConfig.Lines = metadata.Lines
+
+	// Update document count based on the number of hash lines
+	sessionConfig.DocumentCount = len(metadata.Lines)
+
+	// Write updated session config
+	data, err := sessionConfig.ToSessionConf()
+	if err != nil {
+		return fmt.Errorf("failed to serialize session config: %w", err)
+	}
+
+	if err := os.WriteFile(sessionPath, data, 0600); err != nil {
+		return fmt.Errorf("failed writing session config file: %w", err)
 	}
 
 	return nil
@@ -374,17 +402,26 @@ func (app *App) readMeta(ctx context.Context) (*ParsedMeta, error) {
 		return nil, err
 	}
 
+	// Try to read from new session.conf format first
+	sessionPath := filepath.Join(phoDir, phoSessionConf)
+	if data, err := os.ReadFile(sessionPath); err == nil {
+		sessionConfig := &SessionConfig{}
+		if err := sessionConfig.FromSessionConf(data); err == nil {
+			return sessionConfig.ToParsedMeta(), nil
+		}
+	}
+
+	// Fall back to legacy _meta file
 	metaFilePath := filepath.Join(phoDir, phoMetaFile)
 	data, err := os.ReadFile(metaFilePath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, fmt.Errorf("could not open: %w", ErrNoMeta)
 		}
-
 		return nil, fmt.Errorf("could not open: %w", err)
 	}
 
-	// Try to parse as JSON first (new format)
+	// Try to parse as JSON first (JSON format in _meta)
 	var metadata ParsedMeta
 	if err := metadata.FromJSON(data); err == nil {
 		return &metadata, nil
@@ -544,15 +581,29 @@ func (app *App) ApplyChanges(ctx context.Context) error {
 
 	mongoClientRestorer := restore.NewMongoClientRestorer(col)
 
+	var applyErrors []error
 	for _, ch := range changes {
 		if mongoCmd, err := mongoClientRestorer.Build(ch); err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "could not build mongo shell command: %v\n", err)
+			applyErrors = append(applyErrors, err)
 		} else {
 			err := mongoCmd(ctx)
 			if err != nil {
 				_, _ = fmt.Fprintf(os.Stderr, "failed to apply change: %v\n", err)
+				applyErrors = append(applyErrors, err)
 			}
 		}
+	}
+
+	// Only clear the session if all changes were applied successfully
+	if len(applyErrors) == 0 {
+		if err := app.ClearSession(ctx); err != nil {
+			// This is a soft error - the changes were applied successfully
+			// but we failed to clean up the session files
+			_, _ = fmt.Fprintf(os.Stderr, "Warning: failed to clear session after applying changes: %v\n", err)
+		}
+	} else {
+		_, _ = fmt.Fprintf(os.Stderr, "Session not cleared due to %d errors during application\n", len(applyErrors))
 	}
 
 	return nil

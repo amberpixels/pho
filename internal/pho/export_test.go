@@ -39,6 +39,7 @@ func (a *AppReflect) ExtractChanges(ctx context.Context) (diff.Changes, error) {
 // Export constants for testing via getter functions.
 func GetPhoDir() string         { return phoDir }
 func GetPhoMetaFile() string    { return phoMetaFile }
+func GetPhoSessionConf() string { return phoSessionConf }
 func GetPhoDumpBase() string    { return phoDumpBase }
 func GetPhoSessionFile() string { return phoSessionFile }
 

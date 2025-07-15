@@ -18,7 +18,7 @@ func TestNew(t *testing.T) {
 	require.NotNil(t, cmd)
 	assert.Equal(t, "pho", cmd.Name)
 	assert.Equal(t, "MongoDB document editor - query, edit, and apply changes interactively", cmd.Usage)
-	assert.Len(t, cmd.Commands, 4)
+	assert.Len(t, cmd.Commands, 5) // version, query, edit, review, apply
 }
 
 func TestParseExtJSONMode(t *testing.T) {

@@ -20,7 +20,7 @@ const (
 )
 
 var (
-	// Version is injected via ldflags during build
+	// Version is injected via ldflags during build.
 	Version = "dev"
 )
 
@@ -298,6 +298,9 @@ type cliCommandInterface interface {
 	Int64(name string) int64
 }
 
+// TODO: think how to properly handle the extjson thing
+const modeExtJSONCanonical = "canonical"
+
 // queryAction handles the main query and edit workflow.
 func queryAction(ctx context.Context, cmd *cli.Command) error {
 	// Create logger with appropriate verbosity level
@@ -458,7 +461,7 @@ func editAction(ctx context.Context, cmd *cli.Command) error {
 	// Parse and validate ExtJSON mode (needed for renderer)
 	extjsonModeStr := cmd.String("extjson-mode")
 	if extjsonModeStr == "" {
-		extjsonModeStr = "canonical" // default value
+		extjsonModeStr = modeExtJSONCanonical
 	}
 	extjsonMode, err := parseExtJSONMode(extjsonModeStr)
 	if err != nil {
@@ -484,7 +487,7 @@ func editAction(ctx context.Context, cmd *cli.Command) error {
 
 	if !hasSession {
 		logger.Error("No active session found")
-		return fmt.Errorf("no active session found. Run 'pho query --edit-later' first to create a session")
+		return errors.New("no active session found. Run 'pho query --edit-later' first to create a session")
 	}
 
 	logger.Verbose("Found active session (created %s ago)", formatDuration(existingSession.Age()))
@@ -518,7 +521,7 @@ func reviewAction(ctx context.Context, cmd *cli.Command) error {
 	// Parse and validate ExtJSON mode (needed for renderer)
 	extjsonModeStr := cmd.String("extjson-mode")
 	if extjsonModeStr == "" {
-		extjsonModeStr = "canonical" // default value
+		extjsonModeStr = modeExtJSONCanonical
 	}
 	extjsonMode, err := parseExtJSONMode(extjsonModeStr)
 	if err != nil {
@@ -544,7 +547,7 @@ func reviewAction(ctx context.Context, cmd *cli.Command) error {
 
 	if !hasSession {
 		logger.Error("No active session found")
-		return fmt.Errorf("no active session found. Run 'pho query' first to create a session")
+		return errors.New("no active session found. Run 'pho query' first to create a session")
 	}
 
 	// Load session metadata to configure the app
@@ -575,7 +578,25 @@ func applyAction(ctx context.Context, cmd *cli.Command) error {
 
 	logger.Verbose("Starting apply action")
 
-	p := pho.NewApp()
+	// Parse and validate ExtJSON mode (needed for renderer)
+	extjsonModeStr := cmd.String("extjson-mode")
+	if extjsonModeStr == "" {
+		extjsonModeStr = modeExtJSONCanonical
+	}
+	extjsonMode, err := parseExtJSONMode(extjsonModeStr)
+	if err != nil {
+		logger.Error("Invalid ExtJSON mode: %s", err)
+		return err
+	}
+
+	// Create pho app with renderer configuration
+	p := pho.NewApp(
+		pho.WithRenderer(render.NewRenderer(
+			render.WithExtJSONMode(extjsonMode),
+			render.WithShowLineNumbers(cmd.Bool("line-numbers")),
+			render.WithCompactJSON(cmd.Bool("compact")),
+		)),
+	)
 
 	// Check if there's an active session
 	hasSession, _, err := p.HasActiveSession(ctx)
@@ -586,7 +607,7 @@ func applyAction(ctx context.Context, cmd *cli.Command) error {
 
 	if !hasSession {
 		logger.Error("No active session found")
-		return fmt.Errorf("no active session found. Run 'pho query' first to create a session")
+		return errors.New("no active session found. Run 'pho query' first to create a session")
 	}
 
 	// Setup context with signal handling
@@ -729,12 +750,15 @@ func formatConnectionError(uri string, err error) error {
 	}
 
 	// For any other error, show a generic message with the URI
-	return fmt.Errorf("%s❌ Cannot connect to MongoDB at %s%s%s - %v",
+	return fmt.Errorf("%s❌ Cannot connect to MongoDB at %s%s%s - %w",
 		red, yellow, uri, reset, err)
 }
 
 // versionAction handles the version command.
+//
+//nolint:forbidigo // it's ok here
 func versionAction(ctx context.Context, cmd *cli.Command) error {
+	_, _ = ctx, cmd
 	fmt.Printf("pho version %s\n", Version)
 	return nil
 }
@@ -762,7 +786,7 @@ func defaultAction(ctx context.Context, cmd *cli.Command) error {
 		fmt.Fprintf(os.Stderr, "  apply    Apply changes to MongoDB\n")
 		fmt.Fprintf(os.Stderr, "  version  Show version information\n\n")
 		fmt.Fprintf(os.Stderr, "Run 'pho --help' for detailed usage information.\n")
-		return fmt.Errorf("database name is required")
+		return errors.New("database name is required")
 	}
 
 	// If database is specified, run the query action (default behavior)

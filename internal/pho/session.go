@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"pho/internal/hashing"
 	"time"
 )
 
@@ -18,20 +19,10 @@ var (
 	ErrNoSession = errors.New("no session found")
 )
 
-// SessionStatus represents the current state of a session.
-type SessionStatus string
-
-const (
-	SessionStatusActive   SessionStatus = "active"
-	SessionStatusModified SessionStatus = "modified"
-	SessionStatusReady    SessionStatus = "ready"
-)
-
 // SessionMetadata contains information about the current editing session.
 type SessionMetadata struct {
 	// Session identification
-	Created time.Time     `json:"created"`
-	Status  SessionStatus `json:"status"`
+	Created time.Time `json:"created"`
 
 	// Query parameters that created this session
 	QueryParams QueryParameters `json:"query_params"`
@@ -67,7 +58,7 @@ func (s *SessionMetadata) Age() time.Duration {
 	return time.Since(s.Created)
 }
 
-// SaveSession saves session metadata to the .pho directory.
+// SaveSession saves session metadata to the unified session.conf file.
 func (app *App) SaveSession(_ context.Context, queryParams QueryParameters) error {
 	if err := app.setupPhoDir(); err != nil {
 		return fmt.Errorf("failed to setup pho directory: %w", err)
@@ -79,22 +70,38 @@ func (app *App) SaveSession(_ context.Context, queryParams QueryParameters) erro
 		dumpFilename = app.getDumpFilename()
 	}
 
-	session := &SessionMetadata{
-		Created:     time.Now(),
-		Status:      SessionStatusActive,
-		QueryParams: queryParams,
-		DumpFile:    dumpFilename,
-		MetaFile:    phoMetaFile,
+	sessionPath := filepath.Join(phoDir, phoSessionConf)
+	sessionConfig := &SessionConfig{
+		Created:       time.Now(),
+		URI:           queryParams.URI,
+		Database:      queryParams.Database,
+		Collection:    queryParams.Collection,
+		Query:         queryParams.Query,
+		Limit:         queryParams.Limit,
+		Sort:          queryParams.Sort,
+		Projection:    queryParams.Projection,
+		DumpFile:      dumpFilename,
+		DocumentCount: 0, // Will be updated when metadata is written
+		Lines:         make(map[string]*hashing.HashData),
 	}
 
-	sessionPath := filepath.Join(phoDir, phoSessionFile)
-	data, err := json.MarshalIndent(session, "", "  ")
+	// If session.conf already exists, preserve the DocumentCount and Lines that were set by writeMetadata
+	if data, err := os.ReadFile(sessionPath); err == nil {
+		existingConfig := &SessionConfig{}
+		if err := existingConfig.FromSessionConf(data); err == nil {
+			// Preserve metadata that was already written
+			sessionConfig.DocumentCount = existingConfig.DocumentCount
+			sessionConfig.Lines = existingConfig.Lines
+		}
+	}
+
+	data, err := sessionConfig.ToSessionConf()
 	if err != nil {
-		return fmt.Errorf("failed to marshal session metadata: %w", err)
+		return fmt.Errorf("failed to serialize session config: %w", err)
 	}
 
 	if err := os.WriteFile(sessionPath, data, 0600); err != nil {
-		return fmt.Errorf("failed to write session file: %w", err)
+		return fmt.Errorf("failed to write session config file: %w", err)
 	}
 
 	return nil
@@ -102,9 +109,17 @@ func (app *App) SaveSession(_ context.Context, queryParams QueryParameters) erro
 
 // LoadSession loads session metadata from the .pho directory.
 func (app *App) LoadSession(_ context.Context) (*SessionMetadata, error) {
-	sessionPath := filepath.Join(phoDir, phoSessionFile)
+	// Try to read from new session.conf format first
+	sessionConfPath := filepath.Join(phoDir, phoSessionConf)
+	if data, err := os.ReadFile(sessionConfPath); err == nil {
+		sessionConfig := &SessionConfig{}
+		if err := sessionConfig.FromSessionConf(data); err == nil {
+			return sessionConfig.ToSessionMetadata(), nil
+		}
+	}
 
-	// Check if session file exists
+	// Fall back to legacy _session.json format
+	sessionPath := filepath.Join(phoDir, phoSessionFile)
 	if _, err := os.Stat(sessionPath); os.IsNotExist(err) {
 		return nil, ErrNoSession
 	}
@@ -124,12 +139,27 @@ func (app *App) LoadSession(_ context.Context) (*SessionMetadata, error) {
 
 // ClearSession removes session metadata and associated files.
 func (app *App) ClearSession(_ context.Context) error {
-	sessionPath := filepath.Join(phoDir, phoSessionFile)
+	// Remove new session.conf file if it exists
+	sessionConfPath := filepath.Join(phoDir, phoSessionConf)
+	if _, err := os.Stat(sessionConfPath); err == nil {
+		if err := os.Remove(sessionConfPath); err != nil {
+			return fmt.Errorf("failed to remove session config file: %w", err)
+		}
+	}
 
-	// Remove session file if it exists
+	// Remove legacy session file if it exists
+	sessionPath := filepath.Join(phoDir, phoSessionFile)
 	if _, err := os.Stat(sessionPath); err == nil {
 		if err := os.Remove(sessionPath); err != nil {
-			return fmt.Errorf("failed to remove session file: %w", err)
+			return fmt.Errorf("failed to remove legacy session file: %w", err)
+		}
+	}
+
+	// Remove legacy meta file if it exists
+	metaPath := filepath.Join(phoDir, phoMetaFile)
+	if _, err := os.Stat(metaPath); err == nil {
+		if err := os.Remove(metaPath); err != nil {
+			return fmt.Errorf("failed to remove legacy meta file: %w", err)
 		}
 	}
 
@@ -149,31 +179,6 @@ func (app *App) HasActiveSession(ctx context.Context) (bool, *SessionMetadata, e
 	return true, session, nil
 }
 
-// UpdateSessionStatus updates the status of the current session.
-func (app *App) UpdateSessionStatus(ctx context.Context, status SessionStatus) error {
-	session, err := app.LoadSession(ctx)
-	if err != nil {
-		if errors.Is(err, ErrNoSession) {
-			return errors.New("no active session found")
-		}
-		return err
-	}
-
-	session.Status = status
-
-	sessionPath := filepath.Join(phoDir, phoSessionFile)
-	data, err := json.MarshalIndent(session, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal session metadata: %w", err)
-	}
-
-	if err := os.WriteFile(sessionPath, data, 0600); err != nil {
-		return fmt.Errorf("failed to write session file: %w", err)
-	}
-
-	return nil
-}
-
 // ValidateSession checks if the session files still exist and are valid.
 func (app *App) ValidateSession(_ context.Context, session *SessionMetadata) error {
 	if session == nil {
@@ -186,8 +191,15 @@ func (app *App) ValidateSession(_ context.Context, session *SessionMetadata) err
 		return fmt.Errorf("session dump file missing: %s", session.DumpFile)
 	}
 
-	// Check if meta file exists
+	// Check if session.conf exists (new format) or meta file exists (legacy)
+	sessionConfPath := filepath.Join(phoDir, phoSessionConf)
 	metaPath := filepath.Join(phoDir, session.MetaFile)
+
+	if _, err := os.Stat(sessionConfPath); err == nil {
+		// New format exists, validation passed
+		return nil
+	}
+
 	if _, err := os.Stat(metaPath); os.IsNotExist(err) {
 		return fmt.Errorf("session meta file missing: %s", session.MetaFile)
 	}
