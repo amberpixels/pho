@@ -14,12 +14,26 @@ func main() {
 	os.Exit(run())
 }
 
-func run() int {
-	// TODO: make timeout configurable via CLI flag or environment variable
+// getTimeout returns the configured timeout from environment variable or default.
+func getTimeout() time.Duration {
 	const defaultTimeout = 60 * time.Second
 
+	if timeoutStr := os.Getenv("PHO_TIMEOUT"); timeoutStr != "" {
+		if timeout, err := time.ParseDuration(timeoutStr); err == nil {
+			return timeout
+		}
+		// If parsing fails, fall back to default
+	}
+
+	return defaultTimeout
+}
+
+func run() int {
+	// Get timeout from environment variable or use default
+	timeout := getTimeout()
+
 	// Create context with timeout and signal handling for graceful shutdown
-	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	// Handle Ctrl+C (SIGINT) and SIGTERM for graceful shutdown

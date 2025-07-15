@@ -360,7 +360,7 @@ func queryAction(ctx context.Context, cmd *cli.Command) error {
 	cursor, err := p.RunQuery(ctx, query, limit, cmd.String("sort"), cmd.String("projection"))
 	if err != nil {
 		logger.Error("Query execution failed: %s", err)
-		return fmt.Errorf("failed on executing query: %w", err)
+		return fmt.Errorf("failed to execute query: %w", err)
 	}
 	defer cursor.Close(ctx)
 	logger.Success("Query executed successfully")
@@ -404,7 +404,7 @@ func queryAction(ctx context.Context, cmd *cli.Command) error {
 	out, dumpPath, err := p.SetupDumpDestination()
 	if err != nil {
 		logger.Error("Failed to setup dump destination: %s", err)
-		return fmt.Errorf("failed on setting dump destination: %w", err)
+		return fmt.Errorf("failed to set dump destination: %w", err)
 	}
 	defer out.Close()
 	logger.Debug("Dump file path: %s", dumpPath)
@@ -412,7 +412,7 @@ func queryAction(ctx context.Context, cmd *cli.Command) error {
 	logger.Verbose("Dumping documents to file")
 	if err := p.Dump(ctx, cursor, out); err != nil {
 		logger.Error("Failed to dump to file: %s", err)
-		return fmt.Errorf("failed on dumping: %w", err)
+		return fmt.Errorf("failed to dump: %w", err)
 	}
 	logger.Success("Documents dumped to file")
 
@@ -445,7 +445,7 @@ func queryAction(ctx context.Context, cmd *cli.Command) error {
 	logger.Verbose("Opening editor: %s", editCommand)
 	if err := p.OpenEditor(editCommand, dumpPath); err != nil {
 		logger.Error("Failed to open editor: %s", err)
-		return fmt.Errorf("failed on opening [%s]: %w", editCommand, err)
+		return fmt.Errorf("failed to open [%s]: %w", editCommand, err)
 	}
 	logger.Success("Editor session completed")
 
@@ -514,7 +514,7 @@ func editAction(ctx context.Context, cmd *cli.Command) error {
 	logger.Verbose("Opening editor: %s", editCommand)
 	if err := p.OpenEditor(editCommand, dumpPath); err != nil {
 		logger.Error("Failed to open editor: %s", err)
-		return fmt.Errorf("failed on opening [%s]: %w", editCommand, err)
+		return fmt.Errorf("failed to open [%s]: %w", editCommand, err)
 	}
 	logger.Success("Editor session completed")
 
@@ -579,7 +579,7 @@ func reviewAction(ctx context.Context, cmd *cli.Command) error {
 	logger.Verbose("Reviewing changes in documents")
 	if err := p.ReviewChanges(ctx); err != nil {
 		logger.Error("Failed to review changes: %s", err)
-		return fmt.Errorf("failed on reviewing changes: %w", err)
+		return fmt.Errorf("failed to review changes: %w", err)
 	}
 	logger.Success("Change review completed")
 	return nil
@@ -651,7 +651,7 @@ func applyAction(ctx context.Context, cmd *cli.Command) error {
 	logger.Verbose("Applying changes to MongoDB")
 	if err := p.ApplyChanges(ctx); err != nil {
 		logger.Error("Failed to apply changes: %s", err)
-		return fmt.Errorf("failed on applying changes: %w", err)
+		return fmt.Errorf("failed to apply changes: %w", err)
 	}
 	logger.Success("Changes applied successfully")
 	return nil

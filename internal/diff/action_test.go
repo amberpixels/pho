@@ -321,42 +321,6 @@ func TestAction_JSONMarshaling(t *testing.T) {
 	}
 }
 
-func TestActionsDict_BackwardCompatibility(t *testing.T) {
-	// Test that diff.ActionsDict still works for backward compatibility
-	tests := []struct {
-		name string
-		old  diff.Action
-		new  diff.Action
-	}{
-		{
-			name: "Noop compatibility",
-			old:  diff.ActionsDict.Noop,
-			new:  diff.ActionNoop,
-		},
-		{
-			name: "Updated compatibility",
-			old:  diff.ActionsDict.Updated,
-			new:  diff.ActionUpdated,
-		},
-		{
-			name: "Deleted compatibility",
-			old:  diff.ActionsDict.Deleted,
-			new:  diff.ActionDeleted,
-		},
-		{
-			name: "Added compatibility",
-			old:  diff.ActionsDict.Added,
-			new:  diff.ActionAdded,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.new, tt.old)
-		})
-	}
-}
-
 func TestAction_EnumValues(t *testing.T) {
 	// Test that enum values are sequential starting from 0
 	assert.Equal(t, diff.ActionNoop, diff.Action(0))

@@ -155,7 +155,7 @@ func TestParseProjection(t *testing.T) {
 		{
 			name:     "empty projection",
 			projStr:  "",
-			expected: bson.D{{Key: "", Value: 1}},
+			expected: nil,
 		},
 		{
 			name:     "single field include",
@@ -165,7 +165,7 @@ func TestParseProjection(t *testing.T) {
 		{
 			name:     "single field exclude",
 			projStr:  "-_id",
-			expected: bson.D{{Key: "_id", Value: -1}},
+			expected: bson.D{{Key: "_id", Value: 0}},
 		},
 		{
 			name:    "multiple fields",
@@ -173,7 +173,16 @@ func TestParseProjection(t *testing.T) {
 			expected: bson.D{
 				{Key: "name", Value: 1},
 				{Key: "email", Value: 1},
-				{Key: "_id", Value: -1},
+				{Key: "_id", Value: 0},
+			},
+		},
+		{
+			name:    "complex field names",
+			projStr: "user.name,-user.password,+user.email",
+			expected: bson.D{
+				{Key: "user.name", Value: 1},
+				{Key: "user.password", Value: 0},
+				{Key: "user.email", Value: 1},
 			},
 		},
 	}
@@ -254,16 +263,73 @@ func TestParseSort_EdgeCases(t *testing.T) {
 	}
 }
 
-// Test that parseProjection is indeed using parseSort internally.
-func TestParseProjection_UsesParseSort(t *testing.T) {
-	input := "name,-_id"
+// Test JSON format projection separately due to map ordering.
+func TestParseProjection_JSONFormat(t *testing.T) {
+	result := pho.ParseProjection(`{"name": 1, "_id": 0}`)
 
-	projResult := pho.ParseProjection(input)
-	sortResult := pho.ParseSort(input)
+	// Check that we got 2 elements
+	if len(result) != 2 {
+		t.Errorf("Expected 2 projection fields, got %d", len(result))
+		return
+	}
 
-	if !reflect.DeepEqual(projResult, sortResult) {
-		t.Errorf("parseProjection() should use parseSort() internally, but results differ")
-		t.Errorf("parseProjection() = %v", projResult)
-		t.Errorf("parseSort() = %v", sortResult)
+	// Check that both fields are present with correct values
+	found := make(map[string]int)
+	for _, elem := range result {
+		if val, ok := elem.Value.(int); ok {
+			found[elem.Key] = val
+		} else if val, ok := elem.Value.(int32); ok {
+			found[elem.Key] = int(val)
+		} else if val, ok := elem.Value.(int64); ok {
+			found[elem.Key] = int(val)
+		} else {
+			t.Errorf("Unexpected value type for %s: %T", elem.Key, elem.Value)
+		}
+	}
+
+	if found["name"] != 1 || found["_id"] != 0 {
+		t.Errorf("Expected name:1, _id:0, got %v", found)
+	}
+}
+
+// Test edge cases for parseProjection.
+func TestParseProjection_EdgeCases(t *testing.T) {
+	tests := []struct {
+		name     string
+		projStr  string
+		expected bson.D
+	}{
+		{
+			name:    "whitespace handling",
+			projStr: " name , email , -_id ",
+			expected: bson.D{
+				{Key: "name", Value: 1},
+				{Key: "email", Value: 1},
+				{Key: "_id", Value: 0},
+			},
+		},
+		{
+			name:     "invalid JSON fallback to comma-separated",
+			projStr:  `{"name": invalid}`,
+			expected: bson.D{{Key: `{"name": invalid}`, Value: 1}},
+		},
+		{
+			name:    "empty field in list",
+			projStr: "name,,email",
+			expected: bson.D{
+				{Key: "name", Value: 1},
+				{Key: "email", Value: 1},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := pho.ParseProjection(tt.projStr)
+
+			if !reflect.DeepEqual(result, tt.expected) {
+				t.Errorf("parseProjection() = %v, want %v", result, tt.expected)
+			}
+		})
 	}
 }

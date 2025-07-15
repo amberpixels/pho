@@ -104,13 +104,13 @@ func (m *Marshaller) Marshal(result any) ([]byte, error) {
 
 	var temp any
 	if err = json.Unmarshal(marshalled, &temp); err != nil {
-		return nil, fmt.Errorf("stabilizing marshalled bson failed on json unmarshalling: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal JSON when stabilizing marshalled bson: %w", err)
 	}
 
 	// Apply formatting based on compact setting
 	if m.compact || (m.indent == "" && m.prefix == "") {
 		if marshalled, err = json.Marshal(temp); err != nil {
-			return nil, fmt.Errorf("stabilizing marshalled bson failed on json marshalling back: %w", err)
+			return nil, fmt.Errorf("failed to marshal JSON when stabilizing marshalled bson: %w", err)
 		}
 	} else {
 		indentStr := m.indent
@@ -118,7 +118,7 @@ func (m *Marshaller) Marshal(result any) ([]byte, error) {
 			indentStr = " " // Default single space indent
 		}
 		if marshalled, err = json.MarshalIndent(temp, m.prefix, indentStr); err != nil {
-			return nil, fmt.Errorf("stabilizing marshalled bson failed on json marshalling back: %w", err)
+			return nil, fmt.Errorf("failed to marshal JSON when stabilizing marshalled bson: %w", err)
 		}
 	}
 

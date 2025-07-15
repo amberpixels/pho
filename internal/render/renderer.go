@@ -66,7 +66,7 @@ func (r *Renderer) FormatResult(result any) ([]byte, error) {
 			return nil, nil
 		}
 
-		return nil, fmt.Errorf("failed on marshaling result: %w", err)
+		return nil, fmt.Errorf("failed to marshal result: %w", err)
 	}
 	if cfg.AsValidJSON {
 		b = append(b, []byte(",")...)
@@ -90,7 +90,7 @@ func (r *Renderer) Format(ctx context.Context, cursor Cursor, out io.Writer) err
 				continue
 			}
 
-			return fmt.Errorf("failed on decoding line [%d]: %w", lineNumber, err)
+			return fmt.Errorf("failed to decode line [%d]: %w", lineNumber, err)
 		}
 
 		resultBytes, err := r.FormatResult(result)
@@ -99,7 +99,7 @@ func (r *Renderer) Format(ctx context.Context, cursor Cursor, out io.Writer) err
 				continue
 			}
 
-			return fmt.Errorf("failed on formatting line [%d]: %w", lineNumber, err)
+			return fmt.Errorf("failed to format line [%d]: %w", lineNumber, err)
 		}
 
 		if lineNumberBytes := r.FormatLineNumber(lineNumber); lineNumberBytes != nil {
@@ -111,7 +111,7 @@ func (r *Renderer) Format(ctx context.Context, cursor Cursor, out io.Writer) err
 				continue
 			}
 
-			return fmt.Errorf("failed on writing a line [%d]: %w", lineNumber, err)
+			return fmt.Errorf("failed to write line [%d]: %w", lineNumber, err)
 		}
 
 		lineNumber++

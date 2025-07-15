@@ -414,7 +414,7 @@ func TestRenderer_Format_DecodeError(t *testing.T) {
 			name:          "decode error without ignore failures",
 			options:       []render.Option{render.WithExtJSONMode(render.ExtJSONModes.Relaxed)},
 			expectError:   true,
-			errorContains: "failed on decoding line",
+			errorContains: "failed to decode line",
 		},
 		{
 			name: "decode error with ignore failures",
@@ -467,7 +467,7 @@ func TestRenderer_Format_WriteError(t *testing.T) {
 			name:          "write error without ignore failures",
 			options:       []render.Option{render.WithExtJSONMode(render.ExtJSONModes.Relaxed)},
 			expectError:   true,
-			errorContains: "failed on writing a line",
+			errorContains: "failed to write line",
 		},
 		{
 			name: "write error with ignore failures",

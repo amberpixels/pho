@@ -265,7 +265,7 @@ func (app *App) Dump(ctx context.Context, cursor *mongo.Cursor, out io.Writer) e
 				continue
 			}
 
-			return fmt.Errorf("failed on decoding line [%d]: %w", lineNumber, err)
+			return fmt.Errorf("failed to decode line [%d]: %w", lineNumber, err)
 		}
 
 		// Store hash data in metadata when dumping to file
@@ -279,7 +279,7 @@ func (app *App) Dump(ctx context.Context, cursor *mongo.Cursor, out io.Writer) e
 					continue
 				}
 
-				return fmt.Errorf("failed on hashing line [%d]: %w", lineNumber, err)
+				return fmt.Errorf("failed to hash line [%d]: %w", lineNumber, err)
 			}
 			metadata.Lines[resultHashData.GetIdentifier()] = resultHashData
 		}
@@ -290,7 +290,7 @@ func (app *App) Dump(ctx context.Context, cursor *mongo.Cursor, out io.Writer) e
 				continue
 			}
 
-			return fmt.Errorf("failed on formatting line [%d]: %w", lineNumber, err)
+			return fmt.Errorf("failed to format line [%d]: %w", lineNumber, err)
 		}
 
 		if lineNumberBytes := app.render.FormatLineNumber(lineNumber); lineNumberBytes != nil {
@@ -302,7 +302,7 @@ func (app *App) Dump(ctx context.Context, cursor *mongo.Cursor, out io.Writer) e
 				continue
 			}
 
-			return fmt.Errorf("failed on writing a line [%d]: %w", lineNumber, err)
+			return fmt.Errorf("failed to write line [%d]: %w", lineNumber, err)
 		}
 
 		lineNumber++
@@ -591,12 +591,12 @@ func (app *App) readDump(ctx context.Context) ([]bson.M, error) {
 func (app *App) extractChanges(ctx context.Context) (diff.Changes, error) {
 	meta, err := app.readMeta(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed on reading meta: %w", err)
+		return nil, fmt.Errorf("failed to read meta: %w", err)
 	}
 
 	dump, err := app.readDump(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed on reading dump: %w", err)
+		return nil, fmt.Errorf("failed to read dump: %w", err)
 	}
 
 	return diff.CalculateChanges(meta.Lines, dump)
@@ -613,13 +613,13 @@ func (app *App) ReviewChanges(ctx context.Context) error {
 		if errors.Is(err, ErrNoMeta) || errors.Is(err, ErrNoDump) {
 			return errors.New("no dump data to be reviewed")
 		}
-		return fmt.Errorf("failed on extracting changes: %w", err)
+		return fmt.Errorf("failed to extract changes: %w", err)
 	}
 
 	changes := allChanges.EffectiveOnes()
 
 	_, _ = fmt.Fprintf(os.Stdout, "// Effective changes: %d\n", changes.Len())
-	_, _ = fmt.Fprintf(os.Stdout, "// Noop changes: %d\n", allChanges.FilterByAction(diff.ActionsDict.Noop).Len())
+	_, _ = fmt.Fprintf(os.Stdout, "// Noop changes: %d\n", allChanges.FilterByAction(diff.ActionNoop).Len())
 
 	mongoShellRestorer := restore.NewMongoShellRestorer(app.collectionName)
 
@@ -650,7 +650,7 @@ func (app *App) ApplyChanges(ctx context.Context) error {
 		if errors.Is(err, ErrNoMeta) || errors.Is(err, ErrNoDump) {
 			return errors.New("no dump data to be reviewed")
 		}
-		return fmt.Errorf("failed on extracting changes: %w", err)
+		return fmt.Errorf("failed to extract changes: %w", err)
 	}
 
 	changes := allChanges.EffectiveOnes()
@@ -658,7 +658,7 @@ func (app *App) ApplyChanges(ctx context.Context) error {
 	// TODO: make level of verbosity an app flag
 
 	_, _ = fmt.Fprintf(os.Stdout, "// Effective changes: %d\n", changes.Len())
-	_, _ = fmt.Fprintf(os.Stdout, "// Noop changes: %d\n", allChanges.FilterByAction(diff.ActionsDict.Noop).Len())
+	_, _ = fmt.Fprintf(os.Stdout, "// Noop changes: %d\n", allChanges.FilterByAction(diff.ActionNoop).Len())
 
 	mongoClientRestorer := restore.NewMongoClientRestorer(col)
 

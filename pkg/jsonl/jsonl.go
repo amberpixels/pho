@@ -24,7 +24,7 @@ func DecodeAll[T any](r io.Reader) ([]T, error) {
 			break
 		}
 		if err != nil {
-			return nil, fmt.Errorf("failed on decoding a result: %w", err)
+			return nil, fmt.Errorf("failed to decode a result: %w", err)
 		}
 
 		results = append(results, result)

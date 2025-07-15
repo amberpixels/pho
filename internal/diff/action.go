@@ -46,19 +46,17 @@ func (a Action) MarshalText() ([]byte, error) {
 
 // UnmarshalText implements encoding.TextUnmarshaler for JSON/YAML deserialization.
 func (a *Action) UnmarshalText(text []byte) error {
-	switch string(text) {
-	case "NOOP":
-		*a = ActionNoop
-	case "UPDATED":
-		*a = ActionUpdated
-	case "DELETED":
-		*a = ActionDeleted
-	case "ADDED":
-		*a = ActionAdded
-	default:
-		return fmt.Errorf("invalid action: %s", string(text))
+	input := string(text)
+
+	// Try each action by comparing with its String() representation
+	for candidate := ActionNoop; candidate <= ActionAdded; candidate++ {
+		if input == candidate.String() {
+			*a = candidate
+			return nil
+		}
 	}
-	return nil
+
+	return fmt.Errorf("invalid action: %s", input)
 }
 
 // ParseAction parses a string into an Action.
@@ -66,18 +64,4 @@ func ParseAction(s string) (Action, error) {
 	var a Action
 	err := a.UnmarshalText([]byte(s))
 	return a, err
-}
-
-// ActionsDict provides backward compatibility and convenience access
-// Deprecated: Use Action constants directly (ActionNoop, ActionUpdated, etc.)
-var ActionsDict = struct {
-	Noop    Action
-	Updated Action
-	Deleted Action
-	Added   Action
-}{
-	Noop:    ActionNoop,
-	Updated: ActionUpdated,
-	Deleted: ActionDeleted,
-	Added:   ActionAdded,
 }

@@ -48,8 +48,45 @@ func parseSort(sortStr string) bson.D {
 }
 
 // parseProjection parses projection string into bson.D.
+// Supports formats:
+// - "field1,field2,field3" - include specific fields
+// - "-field1,-field2" - exclude specific fields (cannot mix include/exclude)
+// - JSON format: '{"field1": 1, "field2": 0}'.
 func parseProjection(in string) bson.D {
-	// TODO:
-	// for now do the same as parseSort, but should be refactored
-	return parseSort(in)
+	if in == "" {
+		return nil
+	}
+
+	// Try to parse as JSON first
+	if strings.HasPrefix(in, "{") && strings.HasSuffix(in, "}") {
+		var projection bson.M
+		if err := bson.UnmarshalExtJSON([]byte(in), true, &projection); err == nil {
+			var result bson.D
+			for key, value := range projection {
+				result = append(result, bson.E{Key: key, Value: value})
+			}
+			return result
+		}
+	}
+
+	// Parse comma-separated fields
+	fields := strings.Split(in, ",")
+	var projection bson.D
+
+	for _, field := range fields {
+		field = strings.TrimSpace(field)
+		if field == "" {
+			continue
+		}
+
+		value := 1 // include by default
+		if strings.HasPrefix(field, "-") {
+			value = 0 // exclude
+			field = strings.TrimPrefix(field, "-")
+		} else if strings.HasPrefix(field, "+") {
+			field = strings.TrimPrefix(field, "+")
+		}
+		projection = append(projection, bson.E{Key: field, Value: value})
+	}
+	return projection
 }

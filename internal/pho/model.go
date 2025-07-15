@@ -27,8 +27,8 @@ type ParsedMeta struct {
 
 type DumpDoc bson.M
 
-// UnmarshalJSON for now is a hack, as we hardcode the way unmarshal parameters in here
-// Whole thing of DumpDoc is required, so it's properly parsed back from ExtJson into bson.
+// UnmarshalJSON implements json.Unmarshaler to properly handle MongoDB ExtJSON format.
+// This ensures DumpDoc can be correctly parsed from ExtJSON into BSON.
 func (tx *DumpDoc) UnmarshalJSON(raw []byte) error {
 	return bson.UnmarshalExtJSON(raw, true, tx)
 }

@@ -86,18 +86,18 @@ func CalculateChanges(source map[string]*hashing.HashData, destination []bson.M)
 		// Check if not found in source, so it's a new document
 		hashDataBefore, ok := source[id]
 		if !ok {
-			changes = append(changes, NewChange(identifiedBy, identifierValue, ActionsDict.Added, doc))
+			changes = append(changes, NewChange(identifiedBy, identifierValue, ActionAdded, doc))
 			continue
 		}
 
 		// Document was not change, so it's a nothing
 		if hashDataBefore.GetChecksum() == checksumAfter {
-			changes = append(changes, NewChange(identifiedBy, identifierValue, ActionsDict.Noop))
+			changes = append(changes, NewChange(identifiedBy, identifierValue, ActionNoop))
 			continue
 		}
 
 		// Otherwise it was an update:
-		changes = append(changes, NewChange(identifiedBy, identifierValue, ActionsDict.Updated, doc))
+		changes = append(changes, NewChange(identifiedBy, identifierValue, ActionUpdated, doc))
 	}
 
 	// To get delete changes we have to do the other way round:
@@ -117,7 +117,7 @@ func CalculateChanges(source map[string]*hashing.HashData, destination []bson.M)
 		// or take it again from hashData
 		identifiedBy, identifierValue := hashData.GetIdentifierParts()
 
-		changes = append(changes, NewChange(identifiedBy, identifierValue, ActionsDict.Deleted))
+		changes = append(changes, NewChange(identifiedBy, identifierValue, ActionDeleted))
 	}
 
 	return changes, nil
