@@ -200,7 +200,7 @@ func (sc *SessionConfig) ToSessionMetadata() *SessionMetadata {
 			Projection: sc.Projection,
 		},
 		DumpFile:      sc.DumpFile,
-		MetaFile:      phoMetaFile, // Legacy field
+		MetaFile:      "session.conf", // Always use session.conf now
 		DocumentCount: sc.DocumentCount,
 	}
 }

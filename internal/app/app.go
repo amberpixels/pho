@@ -481,6 +481,10 @@ func editAction(ctx context.Context, cmd *cli.Command) error {
 	// Check if there's an active session
 	hasSession, existingSession, err := p.HasActiveSession(ctx)
 	if err != nil {
+		if errors.Is(err, pho.ErrSessionLost) {
+			logger.Error("Session data lost: %s", err)
+			return fmt.Errorf("session data lost: %w. Re-run your query to create a new session", err)
+		}
 		logger.Error("Failed to check for existing session: %s", err)
 		return fmt.Errorf("failed to check for existing session: %w", err)
 	}
@@ -497,7 +501,12 @@ func editAction(ctx context.Context, cmd *cli.Command) error {
 		existingSession.QueryParams.Query)
 
 	// Get existing dump file path from session (don't create new file)
-	dumpPath := fmt.Sprintf("%s/%s", p.GetPhoDir(), existingSession.DumpFile)
+	phoDir, err := p.GetPhoDir()
+	if err != nil {
+		logger.Error("Failed to get pho directory: %s", err)
+		return fmt.Errorf("failed to get pho directory: %w", err)
+	}
+	dumpPath := fmt.Sprintf("%s/%s", phoDir, existingSession.DumpFile)
 	logger.Debug("Using existing dump file: %s", dumpPath)
 
 	// Open editor with existing dump file
@@ -541,6 +550,10 @@ func reviewAction(ctx context.Context, cmd *cli.Command) error {
 	// Check if there's an active session and load metadata
 	hasSession, _, err := p.HasActiveSession(ctx)
 	if err != nil {
+		if errors.Is(err, pho.ErrSessionLost) {
+			logger.Error("Session data lost: %s", err)
+			return fmt.Errorf("session data lost: %w. Re-run your query to create a new session", err)
+		}
 		logger.Error("Failed to check for existing session: %s", err)
 		return fmt.Errorf("failed to check for existing session: %w", err)
 	}
@@ -601,6 +614,10 @@ func applyAction(ctx context.Context, cmd *cli.Command) error {
 	// Check if there's an active session
 	hasSession, _, err := p.HasActiveSession(ctx)
 	if err != nil {
+		if errors.Is(err, pho.ErrSessionLost) {
+			logger.Error("Session data lost: %s", err)
+			return fmt.Errorf("session data lost: %w. Re-run your query to create a new session", err)
+		}
 		logger.Error("Failed to check for existing session: %s", err)
 		return fmt.Errorf("failed to check for existing session: %w", err)
 	}

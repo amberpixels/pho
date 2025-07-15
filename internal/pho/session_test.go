@@ -12,8 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var phoDir = pho.GetPhoDir()
-
 func TestSessionMetadata_String(t *testing.T) {
 	session := &pho.SessionMetadata{
 		Created: time.Date(2025, 1, 11, 14, 30, 0, 0, time.UTC),
@@ -42,7 +40,10 @@ func TestSessionMetadata_Age(t *testing.T) {
 
 func TestApp_SaveAndLoadSession(t *testing.T) {
 	tempDir := t.TempDir()
-	t.Chdir(tempDir)
+
+	// Set up isolated environment
+	t.Setenv("PHO_DATA_DIR", tempDir+"/data")
+	t.Setenv("PHO_CONFIG_DIR", tempDir+"/config")
 
 	app := pho.NewApp()
 	ctx := context.Background()
@@ -62,8 +63,14 @@ func TestApp_SaveAndLoadSession(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify session.conf file exists
-	sessionPath := filepath.Join(phoDir, pho.GetPhoSessionConf())
+	dataDir := tempDir + "/data"
+	sessionPath := filepath.Join(dataDir, pho.GetPhoSessionConf())
 	assert.FileExists(t, sessionPath)
+
+	// Create a mock dump file (normally created during query execution)
+	dumpPath := filepath.Join(dataDir, "_dump.jsonl")
+	mockData := `{"_id": {"$oid": "507f1f77bcf86cd799439011"}, "name": "test"}`
+	require.NoError(t, os.WriteFile(dumpPath, []byte(mockData), 0644))
 
 	// Test loading session
 	session, err := app.LoadSession(ctx)
@@ -81,7 +88,10 @@ func TestApp_SaveAndLoadSession(t *testing.T) {
 
 func TestApp_LoadSession_NoSession(t *testing.T) {
 	tempDir := t.TempDir()
-	t.Chdir(tempDir)
+
+	// Set up isolated environment
+	t.Setenv("PHO_DATA_DIR", tempDir+"/data")
+	t.Setenv("PHO_CONFIG_DIR", tempDir+"/config")
 
 	app := pho.NewApp()
 	ctx := context.Background()
@@ -94,7 +104,10 @@ func TestApp_LoadSession_NoSession(t *testing.T) {
 
 func TestApp_ClearSession(t *testing.T) {
 	tempDir := t.TempDir()
-	t.Chdir(tempDir)
+
+	// Set up isolated environment
+	t.Setenv("PHO_DATA_DIR", tempDir+"/data")
+	t.Setenv("PHO_CONFIG_DIR", tempDir+"/config")
 
 	app := pho.NewApp()
 	ctx := context.Background()
@@ -109,8 +122,14 @@ func TestApp_ClearSession(t *testing.T) {
 	err := app.SaveSession(ctx, queryParams)
 	require.NoError(t, err)
 
+	// Create a mock dump file (normally created during query execution)
+	dataDir := tempDir + "/data"
+	dumpPath := filepath.Join(dataDir, "_dump.jsonl")
+	mockData := `{"_id": {"$oid": "507f1f77bcf86cd799439011"}, "name": "test"}`
+	require.NoError(t, os.WriteFile(dumpPath, []byte(mockData), 0644))
+
 	// Verify session exists
-	sessionPath := filepath.Join(phoDir, pho.GetPhoSessionConf())
+	sessionPath := filepath.Join(dataDir, pho.GetPhoSessionConf())
 	assert.FileExists(t, sessionPath)
 
 	// Clear session
@@ -123,7 +142,10 @@ func TestApp_ClearSession(t *testing.T) {
 
 func TestApp_HasActiveSession(t *testing.T) {
 	tempDir := t.TempDir()
-	t.Chdir(tempDir)
+
+	// Set up isolated environment
+	t.Setenv("PHO_DATA_DIR", tempDir+"/data")
+	t.Setenv("PHO_CONFIG_DIR", tempDir+"/config")
 
 	app := pho.NewApp()
 	ctx := context.Background()
@@ -144,6 +166,12 @@ func TestApp_HasActiveSession(t *testing.T) {
 	err = app.SaveSession(ctx, queryParams)
 	require.NoError(t, err)
 
+	// Create a mock dump file (normally created during query execution)
+	dataDir := tempDir + "/data"
+	dumpPath := filepath.Join(dataDir, "_dump.jsonl")
+	mockData := `{"_id": {"$oid": "507f1f77bcf86cd799439011"}, "name": "test"}`
+	require.NoError(t, os.WriteFile(dumpPath, []byte(mockData), 0644))
+
 	// Test with session
 	hasSession, session, err = app.HasActiveSession(ctx)
 	require.NoError(t, err)
@@ -154,7 +182,10 @@ func TestApp_HasActiveSession(t *testing.T) {
 
 func TestApp_ValidateSession(t *testing.T) {
 	tempDir := t.TempDir()
-	t.Chdir(tempDir)
+
+	// Set up isolated environment
+	t.Setenv("PHO_DATA_DIR", tempDir+"/data")
+	t.Setenv("PHO_CONFIG_DIR", tempDir+"/config")
 
 	app := pho.NewApp()
 	ctx := context.Background()
@@ -164,14 +195,17 @@ func TestApp_ValidateSession(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "session is nil")
 
-	// Create pho directory and files
-	require.NoError(t, os.Mkdir(phoDir, 0755))
-	require.NoError(t, os.WriteFile(filepath.Join(phoDir, "_dump.json"), []byte("{}"), 0644))
-	require.NoError(t, os.WriteFile(filepath.Join(phoDir, "_meta"), []byte("test"), 0644))
+	// Get the actual data directory for this test
+	dataDir := tempDir + "/data"
+	require.NoError(t, os.MkdirAll(dataDir, 0755))
+
+	// Create dump file and session config
+	require.NoError(t, os.WriteFile(filepath.Join(dataDir, "_dump.json"), []byte("{}"), 0644))
+	sessionConfig := "Created: 2025-01-11T14:30:00Z\nURI: mongodb://localhost:27017\nDatabase: testdb\nCollection: users\nDumpFile: _dump.json\nDocumentCount: 1\n"
+	require.NoError(t, os.WriteFile(filepath.Join(dataDir, "session.conf"), []byte(sessionConfig), 0644))
 
 	session := &pho.SessionMetadata{
 		DumpFile: "_dump.json",
-		MetaFile: "_meta",
 	}
 
 	// Test with valid session
@@ -179,7 +213,7 @@ func TestApp_ValidateSession(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Test with missing dump file
-	require.NoError(t, os.Remove(filepath.Join(phoDir, "_dump.json")))
+	require.NoError(t, os.Remove(filepath.Join(dataDir, "_dump.json")))
 	err = app.ValidateSession(ctx, session)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "session dump file missing")

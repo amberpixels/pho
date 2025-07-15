@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"os/user"
 	"path/filepath"
 	"pho/internal/diff"
 	"pho/internal/hashing"
@@ -23,11 +24,10 @@ import (
 )
 
 const (
-	phoDir            = ".pho"
-	phoMetaFile       = "_meta"                // Legacy meta file
-	phoSessionConf    = "session.conf"         // New unified session config file
+	phoSessionConf    = "session.conf"         // Session config file
 	phoDumpBase       = "_dump"                // Base filename without extension
 	connectionTimeout = 500 * time.Millisecond // Timeout for connection preflight check
+	sessionsSubDir    = "sessions"             // Sessions subdirectory in config dir
 )
 
 var (
@@ -44,6 +44,45 @@ type App struct {
 	dbClient *mongo.Client
 
 	render *render.Renderer
+}
+
+// getPhoDataDir returns the directory for storing temporary data files.
+// Defaults to /tmp/pho-$USER but can be overridden with PHO_DATA_DIR environment variable.
+func getPhoDataDir() (string, error) {
+	if envDir := os.Getenv("PHO_DATA_DIR"); envDir != "" {
+		return envDir, nil
+	}
+
+	currentUser, err := user.Current()
+	if err != nil {
+		return "", fmt.Errorf("failed to get current user: %w", err)
+	}
+
+	return filepath.Join("/tmp", "pho-"+currentUser.Username), nil
+}
+
+// getPhoConfigDir returns the directory for storing configuration and session registry.
+// Defaults to ~/.pho but can be overridden with PHO_CONFIG_DIR environment variable.
+func getPhoConfigDir() (string, error) {
+	if envDir := os.Getenv("PHO_CONFIG_DIR"); envDir != "" {
+		return envDir, nil
+	}
+
+	currentUser, err := user.Current()
+	if err != nil {
+		return "", fmt.Errorf("failed to get current user: %w", err)
+	}
+
+	return filepath.Join(currentUser.HomeDir, ".pho"), nil
+}
+
+// getSessionsDir returns the directory for storing session registry files.
+func getSessionsDir() (string, error) {
+	configDir, err := getPhoConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(configDir, sessionsSubDir), nil
 }
 
 // NewApp creates a new Pho app with the given options.
@@ -281,14 +320,19 @@ func (app *App) Dump(ctx context.Context, cursor *mongo.Cursor, out io.Writer) e
 	return nil
 }
 
-// GetPhoDir returns the pho directory path.
-func (app *App) GetPhoDir() string {
-	return phoDir
+// GetPhoDir returns the pho data directory path.
+func (app *App) GetPhoDir() (string, error) {
+	return getPhoDataDir()
 }
 
-// setupPhoDir ensures .pho directory exists or creates it.
+// setupPhoDir ensures pho data directory exists or creates it.
 func (app *App) setupPhoDir() error {
-	_, err := os.Stat(phoDir)
+	phoDir, err := getPhoDataDir()
+	if err != nil {
+		return fmt.Errorf("could not get pho data dir: %w", err)
+	}
+
+	_, err = os.Stat(phoDir)
 	if err == nil {
 		return nil
 	}
@@ -296,8 +340,56 @@ func (app *App) setupPhoDir() error {
 		return fmt.Errorf("could not validate pho dir: %w", err)
 	}
 
-	if err := os.Mkdir(phoDir, 0750); err != nil {
+	if err := os.MkdirAll(phoDir, 0750); err != nil {
 		return fmt.Errorf("could not create pho dir: %w", err)
+	}
+
+	return nil
+}
+
+// setupConfigDir ensures pho config directory exists or creates it.
+func (app *App) setupConfigDir() error {
+	configDir, err := getPhoConfigDir()
+	if err != nil {
+		return fmt.Errorf("could not get pho config dir: %w", err)
+	}
+
+	_, err = os.Stat(configDir)
+	if err == nil {
+		return nil
+	}
+	if !os.IsNotExist(err) {
+		return fmt.Errorf("could not validate pho config dir: %w", err)
+	}
+
+	if err := os.MkdirAll(configDir, 0750); err != nil {
+		return fmt.Errorf("could not create pho config dir: %w", err)
+	}
+
+	return nil
+}
+
+// setupSessionsDir ensures sessions directory exists or creates it.
+func (app *App) setupSessionsDir() error {
+	if err := app.setupConfigDir(); err != nil {
+		return err
+	}
+
+	sessionsDir, err := getSessionsDir()
+	if err != nil {
+		return fmt.Errorf("could not get sessions dir: %w", err)
+	}
+
+	_, err = os.Stat(sessionsDir)
+	if err == nil {
+		return nil
+	}
+	if !os.IsNotExist(err) {
+		return fmt.Errorf("could not validate sessions dir: %w", err)
+	}
+
+	if err := os.MkdirAll(sessionsDir, 0750); err != nil {
+		return fmt.Errorf("could not create sessions dir: %w", err)
 	}
 
 	return nil
@@ -309,8 +401,14 @@ func (app *App) writeMetadata(metadata *ParsedMeta) error {
 		return err
 	}
 
+	// Get data directory path
+	dataDir, err := getPhoDataDir()
+	if err != nil {
+		return fmt.Errorf("could not get pho data dir: %w", err)
+	}
+
 	// Check if session.conf already exists to merge with existing data
-	sessionPath := filepath.Join(phoDir, phoSessionConf)
+	sessionPath := filepath.Join(dataDir, phoSessionConf)
 	sessionConfig := &SessionConfig{}
 
 	if data, err := os.ReadFile(sessionPath); err == nil {
@@ -357,7 +455,13 @@ func (app *App) SetupDumpDestination() (*os.File, string, error) {
 		return nil, "", err
 	}
 
-	destinationPath := filepath.Join(phoDir, app.getDumpFilename())
+	// Get data directory path
+	dataDir, err := getPhoDataDir()
+	if err != nil {
+		return nil, "", fmt.Errorf("could not get pho data dir: %w", err)
+	}
+
+	destinationPath := filepath.Join(dataDir, app.getDumpFilename())
 
 	file, err := os.Create(destinationPath)
 	if err != nil {
@@ -397,23 +501,20 @@ func (app *App) OpenEditor(editorCmd string, filePath string) error {
 	return nil
 }
 
-func (app *App) readMeta(ctx context.Context) (*ParsedMeta, error) {
+func (app *App) readMeta(_ context.Context) (*ParsedMeta, error) {
 	if err := app.setupPhoDir(); err != nil {
 		return nil, err
 	}
 
-	// Try to read from new session.conf format first
-	sessionPath := filepath.Join(phoDir, phoSessionConf)
-	if data, err := os.ReadFile(sessionPath); err == nil {
-		sessionConfig := &SessionConfig{}
-		if err := sessionConfig.FromSessionConf(data); err == nil {
-			return sessionConfig.ToParsedMeta(), nil
-		}
+	// Get data directory path
+	dataDir, err := getPhoDataDir()
+	if err != nil {
+		return nil, fmt.Errorf("could not get pho data dir: %w", err)
 	}
 
-	// Fall back to legacy _meta file
-	metaFilePath := filepath.Join(phoDir, phoMetaFile)
-	data, err := os.ReadFile(metaFilePath)
+	// Read from session.conf format
+	sessionPath := filepath.Join(dataDir, phoSessionConf)
+	data, err := os.ReadFile(sessionPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, fmt.Errorf("could not open: %w", ErrNoMeta)
@@ -421,38 +522,12 @@ func (app *App) readMeta(ctx context.Context) (*ParsedMeta, error) {
 		return nil, fmt.Errorf("could not open: %w", err)
 	}
 
-	// Try to parse as JSON first (JSON format in _meta)
-	var metadata ParsedMeta
-	if err := metadata.FromJSON(data); err == nil {
-		return &metadata, nil
+	sessionConfig := &SessionConfig{}
+	if err := sessionConfig.FromSessionConf(data); err != nil {
+		return nil, fmt.Errorf("failed to parse session config: %w", err)
 	}
 
-	// Fall back to old line-based format for backward compatibility
-	lines := strings.Split(string(data), "\n")
-	meta := map[string]*hashing.HashData{}
-
-	for iLine, line := range lines {
-		// Check for context cancellation
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		default:
-		}
-
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-
-		parsed, err := hashing.Parse(line)
-		if err != nil {
-			return nil, fmt.Errorf("corrupted line#%d: corrupted meta line: %w", iLine, err)
-		}
-
-		meta[parsed.GetIdentifier()] = parsed
-	}
-
-	return &ParsedMeta{Lines: meta}, nil
+	return sessionConfig.ToParsedMeta(), nil
 }
 
 func (app *App) readDump(ctx context.Context) ([]bson.M, error) {
@@ -460,7 +535,13 @@ func (app *App) readDump(ctx context.Context) ([]bson.M, error) {
 		return nil, err
 	}
 
-	dumpFilePath := filepath.Join(phoDir, app.getDumpFilename())
+	// Get data directory path
+	dataDir, err := getPhoDataDir()
+	if err != nil {
+		return nil, fmt.Errorf("could not get pho data dir: %w", err)
+	}
+
+	dumpFilePath := filepath.Join(dataDir, app.getDumpFilename())
 	dumpReader, err := os.Open(dumpFilePath)
 	if err != nil {
 		if os.IsNotExist(err) {

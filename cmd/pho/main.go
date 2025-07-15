@@ -10,8 +10,6 @@ import (
 	"time"
 )
 
-const defaultTimeout = 60 * time.Second // TODO: flag/env
-
 func main() {
 	os.Exit(run())
 }
