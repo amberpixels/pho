@@ -1,12 +1,13 @@
 package config
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
 	"time"
+
+	"github.com/BurntSushi/toml"
 )
 
 const (
@@ -17,75 +18,75 @@ const (
 // Config represents the application configuration.
 type Config struct {
 	// Database-specific settings
-	Mongo    MongoConfig    `json:"mongo"`
-	Postgres PostgresConfig `json:"postgres"`
+	Mongo    MongoConfig    `toml:"mongo"`
+	Postgres PostgresConfig `toml:"postgres"`
 
 	// Database selection and generic query settings
-	Database DatabaseConfig `json:"database"`
-	Query    QueryConfig    `json:"query"`
+	Database DatabaseConfig `toml:"database"`
+	Query    QueryConfig    `toml:"query"`
 
 	// Application settings
-	App AppConfig `json:"app"`
+	App AppConfig `toml:"app"`
 
 	// Output/Display settings
-	Output OutputConfig `json:"output"`
+	Output OutputConfig `toml:"output"`
 
 	// Directory settings
-	Directories DirectoriesConfig `json:"directories"`
+	Directories DirectoriesConfig `toml:"directories"`
 }
 
 // MongoConfig contains MongoDB-specific connection settings.
 type MongoConfig struct {
-	URI         string `json:"uri"`
-	Host        string `json:"host"`
-	Port        string `json:"port"`
-	Database    string `json:"database"`
-	Collection  string `json:"collection"`
-	ExtJSONMode string `json:"extjson_mode"`
+	URI         string `toml:"uri"`
+	Host        string `toml:"host"`
+	Port        string `toml:"port"`
+	Database    string `toml:"database"`
+	Collection  string `toml:"collection"`
+	ExtJSONMode string `toml:"extjson_mode"`
 }
 
 // PostgresConfig contains PostgreSQL-specific connection settings (future).
 type PostgresConfig struct {
-	Host     string `json:"host"`
-	Port     string `json:"port"`
-	Database string `json:"database"`
-	Schema   string `json:"schema"`
-	User     string `json:"user"`
-	SSLMode  string `json:"ssl_mode"`
+	Host     string `toml:"host"`
+	Port     string `toml:"port"`
+	Database string `toml:"database"`
+	Schema   string `toml:"schema"`
+	User     string `toml:"user"`
+	SSLMode  string `toml:"ssl_mode"`
 }
 
 // DatabaseConfig contains database type selection.
 type DatabaseConfig struct {
-	Type string `json:"type"` // "mongodb", "postgres", etc.
+	Type string `toml:"type"` // "mongodb", "postgres", etc.
 }
 
 // QueryConfig contains database-agnostic query settings.
 type QueryConfig struct {
-	Query      string `json:"query"`
-	Limit      int64  `json:"limit"`
-	Sort       string `json:"sort"`
-	Projection string `json:"projection"`
+	Query      string `toml:"query"`
+	Limit      int64  `toml:"limit"`
+	Sort       string `toml:"sort"`
+	Projection string `toml:"projection"`
 }
 
 // AppConfig contains application behavior settings.
 type AppConfig struct {
-	Editor  string `json:"editor"`
-	Timeout string `json:"timeout"`
+	Editor  string `toml:"editor"`
+	Timeout string `toml:"timeout"`
 }
 
 // OutputConfig contains output formatting settings.
 type OutputConfig struct {
-	Format      string `json:"format"` // "json", "yaml", "csv", etc.
-	LineNumbers bool   `json:"line_numbers"`
-	Compact     bool   `json:"compact"`
-	Verbose     bool   `json:"verbose"`
-	Quiet       bool   `json:"quiet"`
+	Format      string `toml:"format"` // "json", "yaml", "csv", etc.
+	LineNumbers bool   `toml:"line_numbers"`
+	Compact     bool   `toml:"compact"`
+	Verbose     bool   `toml:"verbose"`
+	Quiet       bool   `toml:"quiet"`
 }
 
 // DirectoriesConfig contains directory path settings.
 type DirectoriesConfig struct {
-	DataDir   string `json:"data_dir"`
-	ConfigDir string `json:"config_dir"`
+	DataDir   string `toml:"data_dir"`
+	ConfigDir string `toml:"config_dir"`
 }
 
 // NewDefault returns a new Config with default values.
@@ -145,7 +146,7 @@ func Load() (*Config, error) {
 	}
 
 	if data, err := os.ReadFile(configPath); err == nil {
-		if err := json.Unmarshal(data, config); err != nil {
+		if err := toml.Unmarshal(data, config); err != nil {
 			return nil, fmt.Errorf("could not parse config file: %w", err)
 		}
 	} else if !os.IsNotExist(err) {
@@ -171,7 +172,7 @@ func (c *Config) Save() error {
 		return fmt.Errorf("could not create config directory: %w", err)
 	}
 
-	data, err := json.MarshalIndent(c, "", "  ")
+	data, err := toml.Marshal(c)
 	if err != nil {
 		return fmt.Errorf("could not marshal config: %w", err)
 	}
@@ -476,10 +477,10 @@ func getConfigFilePath() (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("could not get user home directory: %w", err)
 		}
-		configDir = filepath.Join(homeDir, ".pho")
+		configDir = filepath.Join(homeDir, ".config", "pho")
 	}
 
-	return filepath.Join(configDir, "config.json"), nil
+	return filepath.Join(configDir, "config.toml"), nil
 }
 
 // GetTimeoutDuration returns the timeout as a time.Duration.

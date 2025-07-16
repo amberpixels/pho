@@ -1,13 +1,13 @@
 package config_test
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"pho/internal/config"
 
+	"github.com/BurntSushi/toml"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -127,7 +127,7 @@ func TestConfig_SaveAndLoad(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify file was created
-	configPath := filepath.Join(tempDir, "config.json")
+	configPath := filepath.Join(tempDir, "config.toml")
 	assert.FileExists(t, configPath)
 
 	// Load config
@@ -157,7 +157,7 @@ func TestConfig_EnvironmentOverrides(t *testing.T) {
 	}
 
 	// Create config file with different values
-	configPath := filepath.Join(tempDir, "config.json")
+	configPath := filepath.Join(tempDir, "config.toml")
 	configData := map[string]interface{}{
 		"mongo": map[string]interface{}{
 			"uri":      "mongodb://file:27017",
@@ -168,7 +168,7 @@ func TestConfig_EnvironmentOverrides(t *testing.T) {
 		},
 	}
 
-	data, err := json.Marshal(configData)
+	data, err := toml.Marshal(configData)
 	require.NoError(t, err)
 
 	err = os.WriteFile(configPath, data, 0600)
