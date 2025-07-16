@@ -325,48 +325,37 @@ func (app *App) GetPhoDir() (string, error) {
 	return getPhoDataDir()
 }
 
-// setupPhoDir ensures pho data directory exists or creates it.
-func (app *App) setupPhoDir() error {
-	phoDir, err := getPhoDataDir()
+// ensureDirectoryExists is a generic function to ensure a directory exists or create it.
+// It takes a directory getter function, directory name for error messages, and returns an error.
+func ensureDirectoryExists(getDirFunc func() (string, error), dirName string) error {
+	dirPath, err := getDirFunc()
 	if err != nil {
-		return fmt.Errorf("could not get pho data dir: %w", err)
+		return fmt.Errorf("could not get %s: %w", dirName, err)
 	}
 
-	_, err = os.Stat(phoDir)
+	_, err = os.Stat(dirPath)
 	if err == nil {
 		return nil
 	}
 	if !os.IsNotExist(err) {
-		return fmt.Errorf("could not validate pho dir: %w", err)
+		return fmt.Errorf("could not validate %s: %w", dirName, err)
 	}
 
-	if err := os.MkdirAll(phoDir, 0750); err != nil {
-		return fmt.Errorf("could not create pho dir: %w", err)
+	if err := os.MkdirAll(dirPath, 0750); err != nil {
+		return fmt.Errorf("could not create %s: %w", dirName, err)
 	}
 
 	return nil
 }
 
+// setupPhoDir ensures pho data directory exists or creates it.
+func (app *App) setupPhoDir() error {
+	return ensureDirectoryExists(getPhoDataDir, "pho data dir")
+}
+
 // setupConfigDir ensures pho config directory exists or creates it.
 func (app *App) setupConfigDir() error {
-	configDir, err := getPhoConfigDir()
-	if err != nil {
-		return fmt.Errorf("could not get pho config dir: %w", err)
-	}
-
-	_, err = os.Stat(configDir)
-	if err == nil {
-		return nil
-	}
-	if !os.IsNotExist(err) {
-		return fmt.Errorf("could not validate pho config dir: %w", err)
-	}
-
-	if err := os.MkdirAll(configDir, 0750); err != nil {
-		return fmt.Errorf("could not create pho config dir: %w", err)
-	}
-
-	return nil
+	return ensureDirectoryExists(getPhoConfigDir, "pho config dir")
 }
 
 // setupSessionsDir ensures sessions directory exists or creates it.
@@ -375,24 +364,7 @@ func (app *App) setupSessionsDir() error {
 		return err
 	}
 
-	sessionsDir, err := getSessionsDir()
-	if err != nil {
-		return fmt.Errorf("could not get sessions dir: %w", err)
-	}
-
-	_, err = os.Stat(sessionsDir)
-	if err == nil {
-		return nil
-	}
-	if !os.IsNotExist(err) {
-		return fmt.Errorf("could not validate sessions dir: %w", err)
-	}
-
-	if err := os.MkdirAll(sessionsDir, 0750); err != nil {
-		return fmt.Errorf("could not create sessions dir: %w", err)
-	}
-
-	return nil
+	return ensureDirectoryExists(getSessionsDir, "sessions dir")
 }
 
 // writeMetadata writes metadata to the unified session.conf file.

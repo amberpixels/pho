@@ -116,6 +116,45 @@ func (a *App) Run(ctx context.Context, args []string) error {
 	return a.cmd.Run(ctx, args)
 }
 
+// getRenderFlags returns common flags used for output rendering.
+func getRenderFlags() []cli.Flag {
+	return []cli.Flag{
+		&cli.StringFlag{
+			Name:    "extjson-mode",
+			Aliases: []string{"m"},
+			Value:   "canonical",
+			Usage:   "ExtJSON output mode: canonical, relaxed, or shell",
+		},
+		&cli.BoolFlag{
+			Name:    "compact",
+			Aliases: []string{"C"},
+			Usage:   "Use compact JSON output (no indentation)",
+		},
+		&cli.BoolFlag{
+			Name:    "line-numbers",
+			Aliases: []string{"n"},
+			Value:   true,
+			Usage:   "Show line numbers in output",
+		},
+	}
+}
+
+// getVerbosityFlags returns common flags used for verbosity control.
+func getVerbosityFlags() []cli.Flag {
+	return []cli.Flag{
+		&cli.BoolFlag{
+			Name:    "verbose",
+			Aliases: []string{"v"},
+			Usage:   "Enable verbose output with detailed progress information",
+		},
+		&cli.BoolFlag{
+			Name:    "quiet",
+			Aliases: []string{"Q"},
+			Usage:   "Suppress all non-essential output (quiet mode)",
+		},
+	}
+}
+
 // getConnectionFlags returns flags for MongoDB connection.
 func getConnectionFlags() []cli.Flag {
 	return []cli.Flag{
@@ -155,74 +194,25 @@ func getConnectionFlags() []cli.Flag {
 
 // getEditFlags returns flags for the edit command.
 func getEditFlags() []cli.Flag {
-	return []cli.Flag{
+	editorFlags := []cli.Flag{
 		&cli.StringFlag{
 			Name:    "editor",
 			Aliases: []string{"e"},
 			Value:   "vim",
 			Usage:   "Editor command to use for editing documents",
 		},
-		&cli.StringFlag{
-			Name:    "extjson-mode",
-			Aliases: []string{"m"},
-			Value:   "canonical",
-			Usage:   "ExtJSON output mode: canonical, relaxed, or shell",
-		},
-		&cli.BoolFlag{
-			Name:    "compact",
-			Aliases: []string{"C"},
-			Usage:   "Use compact JSON output (no indentation)",
-		},
-		&cli.BoolFlag{
-			Name:    "line-numbers",
-			Aliases: []string{"n"},
-			Value:   true,
-			Usage:   "Show line numbers in output",
-		},
-		&cli.BoolFlag{
-			Name:    "verbose",
-			Aliases: []string{"v"},
-			Usage:   "Enable verbose output with detailed progress information",
-		},
-		&cli.BoolFlag{
-			Name:    "quiet",
-			Aliases: []string{"Q"},
-			Usage:   "Suppress all non-essential output (quiet mode)",
-		},
 	}
+
+	// Combine editor-specific flags with shared render and verbosity flags
+	flags := append(append(editorFlags, getRenderFlags()...), getVerbosityFlags()...)
+	return flags
 }
 
 // getReviewFlags returns flags for the review command.
 func getReviewFlags() []cli.Flag {
-	return []cli.Flag{
-		&cli.StringFlag{
-			Name:    "extjson-mode",
-			Aliases: []string{"m"},
-			Value:   "canonical",
-			Usage:   "ExtJSON output mode: canonical, relaxed, or shell",
-		},
-		&cli.BoolFlag{
-			Name:    "compact",
-			Aliases: []string{"C"},
-			Usage:   "Use compact JSON output (no indentation)",
-		},
-		&cli.BoolFlag{
-			Name:    "line-numbers",
-			Aliases: []string{"n"},
-			Value:   true,
-			Usage:   "Show line numbers in output",
-		},
-		&cli.BoolFlag{
-			Name:    "verbose",
-			Aliases: []string{"v"},
-			Usage:   "Enable verbose output with detailed progress information",
-		},
-		&cli.BoolFlag{
-			Name:    "quiet",
-			Aliases: []string{"Q"},
-			Usage:   "Suppress all non-essential output (quiet mode)",
-		},
-	}
+	// Combine shared render and verbosity flags
+	flags := append(getRenderFlags(), getVerbosityFlags()...)
+	return flags
 }
 
 // getCommonFlags returns all flags including connection and query flags.
@@ -259,36 +249,11 @@ func getCommonFlags() []cli.Flag {
 			Name:  "edit",
 			Usage: "Immediately open editor after query (combines query+edit stages)",
 		},
-		&cli.StringFlag{
-			Name:    "extjson-mode",
-			Aliases: []string{"m"},
-			Value:   "canonical",
-			Usage:   "ExtJSON output mode: canonical, relaxed, or shell",
-		},
-		&cli.BoolFlag{
-			Name:    "compact",
-			Aliases: []string{"C"},
-			Usage:   "Use compact JSON output (no indentation)",
-		},
-		&cli.BoolFlag{
-			Name:    "line-numbers",
-			Aliases: []string{"n"},
-			Value:   true,
-			Usage:   "Show line numbers in output",
-		},
-		&cli.BoolFlag{
-			Name:    "verbose",
-			Aliases: []string{"v"},
-			Usage:   "Enable verbose output with detailed progress information",
-		},
-		&cli.BoolFlag{
-			Name:    "quiet",
-			Aliases: []string{"Q"},
-			Usage:   "Suppress all non-essential output (quiet mode)",
-		},
 	}
 
-	return append(connectionFlags, queryFlags...)
+	// Combine all flag types
+	allFlags := append(append(append(connectionFlags, queryFlags...), getRenderFlags()...), getVerbosityFlags()...)
+	return allFlags
 }
 
 // cliCommandInterface defines the minimal interface needed for CLI operations.
@@ -301,6 +266,16 @@ type cliCommandInterface interface {
 // TODO: think how to properly handle the extjson thing
 const modeExtJSONCanonical = "canonical"
 
+// validateAndParseExtJSONMode parses and validates ExtJSON mode from CLI command.
+// Returns the parsed mode or canonical as default if the mode string is empty.
+func validateAndParseExtJSONMode(cmd *cli.Command) (render.ExtJSONMode, error) {
+	extjsonModeStr := cmd.String("extjson-mode")
+	if extjsonModeStr == "" {
+		extjsonModeStr = modeExtJSONCanonical
+	}
+	return parseExtJSONMode(extjsonModeStr)
+}
+
 // queryAction handles the main query and edit workflow.
 func queryAction(ctx context.Context, cmd *cli.Command) error {
 	// Create logger with appropriate verbosity level
@@ -309,13 +284,12 @@ func queryAction(ctx context.Context, cmd *cli.Command) error {
 	logger.Verbose("Starting query action with verbosity level: %s", logger.GetLevel().String())
 
 	// Parse and validate ExtJSON mode
-	extjsonModeStr := cmd.String("extjson-mode")
-	logger.Debug("ExtJSON mode: %s", extjsonModeStr)
-	extjsonMode, err := parseExtJSONMode(extjsonModeStr)
+	extjsonMode, err := validateAndParseExtJSONMode(cmd)
 	if err != nil {
 		logger.Error("Invalid ExtJSON mode: %s", err)
 		return err
 	}
+	logger.Debug("ExtJSON mode: %s", cmd.String("extjson-mode"))
 
 	// Create pho app with configuration
 	uri := prepareMongoURI(cmd.String("uri"), cmd.String("host"), cmd.String("port"))
@@ -459,11 +433,7 @@ func editAction(ctx context.Context, cmd *cli.Command) error {
 	logger.Verbose("Starting edit action")
 
 	// Parse and validate ExtJSON mode (needed for renderer)
-	extjsonModeStr := cmd.String("extjson-mode")
-	if extjsonModeStr == "" {
-		extjsonModeStr = modeExtJSONCanonical
-	}
-	extjsonMode, err := parseExtJSONMode(extjsonModeStr)
+	extjsonMode, err := validateAndParseExtJSONMode(cmd)
 	if err != nil {
 		logger.Error("Invalid ExtJSON mode: %s", err)
 		return err
@@ -528,11 +498,7 @@ func reviewAction(ctx context.Context, cmd *cli.Command) error {
 	logger.Verbose("Starting review action")
 
 	// Parse and validate ExtJSON mode (needed for renderer)
-	extjsonModeStr := cmd.String("extjson-mode")
-	if extjsonModeStr == "" {
-		extjsonModeStr = modeExtJSONCanonical
-	}
-	extjsonMode, err := parseExtJSONMode(extjsonModeStr)
+	extjsonMode, err := validateAndParseExtJSONMode(cmd)
 	if err != nil {
 		logger.Error("Invalid ExtJSON mode: %s", err)
 		return err
@@ -592,11 +558,7 @@ func applyAction(ctx context.Context, cmd *cli.Command) error {
 	logger.Verbose("Starting apply action")
 
 	// Parse and validate ExtJSON mode (needed for renderer)
-	extjsonModeStr := cmd.String("extjson-mode")
-	if extjsonModeStr == "" {
-		extjsonModeStr = modeExtJSONCanonical
-	}
-	extjsonMode, err := parseExtJSONMode(extjsonModeStr)
+	extjsonMode, err := validateAndParseExtJSONMode(cmd)
 	if err != nil {
 		logger.Error("Invalid ExtJSON mode: %s", err)
 		return err
