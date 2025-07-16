@@ -18,8 +18,7 @@ const (
 // Config represents the application configuration.
 type Config struct {
 	// Database-specific settings
-	Mongo    MongoConfig    `toml:"mongo"`
-	Postgres PostgresConfig `toml:"postgres"`
+	Mongo MongoConfig `toml:"mongo"`
 
 	// Database selection and generic query settings
 	Database DatabaseConfig `toml:"database"`
@@ -45,19 +44,9 @@ type MongoConfig struct {
 	ExtJSONMode string `toml:"extjson_mode"`
 }
 
-// PostgresConfig contains PostgreSQL-specific connection settings (future).
-type PostgresConfig struct {
-	Host     string `toml:"host"`
-	Port     string `toml:"port"`
-	Database string `toml:"database"`
-	Schema   string `toml:"schema"`
-	User     string `toml:"user"`
-	SSLMode  string `toml:"ssl_mode"`
-}
-
 // DatabaseConfig contains database type selection.
 type DatabaseConfig struct {
-	Type string `toml:"type"` // "mongodb", "postgres", etc.
+	Type string `toml:"type"` // "mongodb", etc.
 }
 
 // QueryConfig contains database-agnostic query settings.
@@ -100,16 +89,8 @@ func NewDefault() *Config {
 			Collection:  "",
 			ExtJSONMode: "canonical",
 		},
-		Postgres: PostgresConfig{
-			Host:     "localhost",
-			Port:     "5432",
-			Database: "",
-			Schema:   "public",
-			User:     "",
-			SSLMode:  "prefer",
-		},
 		Database: DatabaseConfig{
-			Type: "mongodb", // Default to MongoDB for backward compatibility
+			Type: "mongodb", // Default to MongoDB
 		},
 		Query: QueryConfig{
 			Query:      "{}",
@@ -203,23 +184,6 @@ func (c *Config) applyEnvironmentOverrides() {
 		c.Mongo.Collection = val
 	}
 
-	// PostgreSQL settings (for future use)
-	if val := os.Getenv("POSTGRES_HOST"); val != "" {
-		c.Postgres.Host = val
-	}
-	if val := os.Getenv("POSTGRES_PORT"); val != "" {
-		c.Postgres.Port = val
-	}
-	if val := os.Getenv("POSTGRES_DB"); val != "" {
-		c.Postgres.Database = val
-	}
-	if val := os.Getenv("POSTGRES_USER"); val != "" {
-		c.Postgres.User = val
-	}
-	if val := os.Getenv("POSTGRES_SCHEMA"); val != "" {
-		c.Postgres.Schema = val
-	}
-
 	// Database type
 	if val := os.Getenv("PHO_DATABASE_TYPE"); val != "" {
 		c.Database.Type = val
@@ -305,24 +269,10 @@ func (c *Config) Set(key, value string) error {
 		}
 		c.Mongo.ExtJSONMode = value
 
-	// PostgreSQL settings (future)
-	case "postgres.host":
-		c.Postgres.Host = value
-	case "postgres.port":
-		c.Postgres.Port = value
-	case "postgres.database", "postgres.db":
-		c.Postgres.Database = value
-	case "postgres.schema":
-		c.Postgres.Schema = value
-	case "postgres.user":
-		c.Postgres.User = value
-	case "postgres.ssl_mode", "postgres.ssl-mode":
-		c.Postgres.SSLMode = value
-
 	// Database selection
 	case "database.type":
-		if value != "mongodb" && value != "postgres" {
-			return fmt.Errorf("invalid database type: %s (valid: mongodb, postgres)", value)
+		if value != "mongodb" {
+			return fmt.Errorf("invalid database type: %s (valid: mongodb)", value)
 		}
 		c.Database.Type = value
 
@@ -411,20 +361,6 @@ func (c *Config) Get(key string) (interface{}, error) {
 		return c.Mongo.Collection, nil
 	case "mongo.extjson_mode", "mongo.extjson-mode":
 		return c.Mongo.ExtJSONMode, nil
-
-	// PostgreSQL settings (future)
-	case "postgres.host":
-		return c.Postgres.Host, nil
-	case "postgres.port":
-		return c.Postgres.Port, nil
-	case "postgres.database", "postgres.db":
-		return c.Postgres.Database, nil
-	case "postgres.schema":
-		return c.Postgres.Schema, nil
-	case "postgres.user":
-		return c.Postgres.User, nil
-	case "postgres.ssl_mode", "postgres.ssl-mode":
-		return c.Postgres.SSLMode, nil
 
 	// Database selection
 	case "database.type":

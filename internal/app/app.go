@@ -113,7 +113,7 @@ This will execute the actual database operations.`,
 					Aliases: []string{"cfg"},
 					Usage:   "Manage pho configuration",
 					Description: `Manage pho configuration settings.
-Configuration is stored in ~/.pho/config.json and can be overridden by environment variables.`,
+Configuration is stored in ~/.config/pho/config.toml and can be overridden by environment variables.`,
 					Commands: []*cli.Command{
 						{
 							Name:    "get",
@@ -138,11 +138,18 @@ Examples:
 							Action: configSetAction,
 						},
 						{
-							Name:        "list",
-							Aliases:     []string{"ls"},
-							Usage:       "List all configuration values",
-							Description: `List all current configuration values.`,
-							Action:      configListAction,
+							Name:    "list",
+							Aliases: []string{"ls"},
+							Usage:   "List configuration values [section]",
+							Description: `List all current configuration values, or values for a specific section.
+
+Examples:
+  pho config list           # List all configuration values
+  pho config list mongo     # List only MongoDB configuration
+  pho config list app       # List only Application configuration
+
+Available sections: mongo, database, query, app, output, directories`,
+							Action: configListAction,
 						},
 					},
 				},
@@ -942,14 +949,9 @@ func configListAction(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 
-	fmt.Fprintf(os.Stdout, "Current configuration:\n\n")
-
 	categories := map[string][]string{
 		"MongoDB": {
 			"mongo.uri", "mongo.host", "mongo.port", "mongo.database", "mongo.collection", "mongo.extjson_mode",
-		},
-		"PostgreSQL": {
-			"postgres.host", "postgres.port", "postgres.database", "postgres.schema", "postgres.user", "postgres.ssl_mode",
 		},
 		"Database": {
 			"database.type",
@@ -968,20 +970,53 @@ func configListAction(ctx context.Context, cmd *cli.Command) error {
 		},
 	}
 
-	for category, categoryKeys := range categories {
-		fmt.Fprintf(os.Stdout, "[%s]\n", category)
-		for _, key := range categoryKeys {
-			if value, err := cfg.Get(key); err == nil {
-				// Show empty values as <empty>
-				displayValue := fmt.Sprintf("%v", value)
-				if displayValue == "" {
-					displayValue = "<empty>"
-				}
-				fmt.Fprintf(os.Stdout, "  %-20s = %s\n", key, displayValue)
-			}
+	// Map section shortcuts to full category names
+	sectionMap := map[string]string{
+		"mongo":       "MongoDB",
+		"database":    "Database",
+		"query":       "Query",
+		"app":         "Application",
+		"output":      "Output",
+		"directories": "Directories",
+	}
+
+	// Check if specific section is requested
+	args := cmd.Args()
+	if args.Len() > 0 {
+		sectionName := args.Get(0)
+		if categoryName, exists := sectionMap[sectionName]; exists {
+			// List only the specific section
+			fmt.Fprintf(os.Stdout, "Configuration for %s:\n\n", categoryName)
+			printConfigSection(cfg, categoryName, categories[categoryName])
+			return nil
 		}
-		fmt.Fprintf(os.Stdout, "\n")
+		fmt.Fprintf(os.Stderr, "Error: Unknown section '%s'\n", sectionName)
+		fmt.Fprintf(os.Stderr, "Available sections: mongo, database, query, app, output, directories\n")
+		return fmt.Errorf("unknown section: %s", sectionName)
+	}
+
+	// List all sections
+	fmt.Fprintf(os.Stdout, "Current configuration:\n\n")
+	for category, categoryKeys := range categories {
+		printConfigSection(cfg, category, categoryKeys)
 	}
 
 	return nil
+}
+
+// printConfigSection prints a single configuration section.
+func printConfigSection(cfg *config.Config, category string, categoryKeys []string) {
+	fmt.Fprintf(os.Stdout, "[%s]\n", category)
+
+	for _, key := range categoryKeys {
+		if value, err := cfg.Get(key); err == nil {
+			// Show empty values as <empty>
+			displayValue := fmt.Sprintf("%v", value)
+			if displayValue == "" {
+				displayValue = "<empty>"
+			}
+			fmt.Fprintf(os.Stdout, "  %-20s = %s\n", key, displayValue)
+		}
+	}
+	fmt.Fprintf(os.Stdout, "\n")
 }

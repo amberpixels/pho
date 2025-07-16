@@ -19,12 +19,6 @@ func TestNewDefault(t *testing.T) {
 	assert.Equal(t, "mongodb://localhost:27017", cfg.Mongo.URI)
 	assert.Equal(t, "canonical", cfg.Mongo.ExtJSONMode)
 
-	// PostgreSQL config
-	assert.Equal(t, "localhost", cfg.Postgres.Host)
-	assert.Equal(t, "5432", cfg.Postgres.Port)
-	assert.Equal(t, "public", cfg.Postgres.Schema)
-	assert.Equal(t, "prefer", cfg.Postgres.SSLMode)
-
 	// Database selection
 	assert.Equal(t, "mongodb", cfg.Database.Type)
 
@@ -55,9 +49,7 @@ func TestConfig_SetAndGet(t *testing.T) {
 		{"mongo.uri", "mongodb://example.com:27017", "mongodb://example.com:27017"},
 		{"mongo.database", "testdb", "testdb"},
 		{"mongo.extjson_mode", "relaxed", "relaxed"},
-		{"postgres.host", "localhost", "localhost"},
-		{"postgres.database", "testdb", "testdb"},
-		{"database.type", "postgres", "postgres"},
+		{"database.type", "mongodb", "mongodb"},
 		{"query.query", "{\"test\": 1}", "{\"test\": 1}"},
 		{"query.limit", "5000", int64(5000)},
 		{"app.editor", "nano", "nano"},
