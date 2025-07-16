@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"pho/internal/app"
+	"pho/internal/config"
 	"syscall"
 	"time"
 )
@@ -14,18 +15,17 @@ func main() {
 	os.Exit(run())
 }
 
-// getTimeout returns the configured timeout from environment variable or default.
+// getTimeout returns the configured timeout from config or environment variable.
 func getTimeout() time.Duration {
-	const defaultTimeout = 60 * time.Second
-
-	if timeoutStr := os.Getenv("PHO_TIMEOUT"); timeoutStr != "" {
-		if timeout, err := time.ParseDuration(timeoutStr); err == nil {
-			return timeout
-		}
-		// If parsing fails, fall back to default
+	// Load config to get timeout
+	cfg, err := config.Load()
+	if err != nil {
+		// Fallback to default if config loading fails
+		const defaultTimeoutSeconds = 60
+		return defaultTimeoutSeconds * time.Second
 	}
 
-	return defaultTimeout
+	return cfg.GetTimeoutDuration()
 }
 
 func run() int {

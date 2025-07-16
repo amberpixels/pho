@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"pho/internal/config"
 	"pho/internal/logging"
 	"pho/internal/pho"
 	"pho/internal/render"
@@ -15,10 +16,6 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-const (
-	defaultDocumentLimit = 10000 // Default limit for document retrieval
-)
-
 var (
 	// Version is injected via ldflags during build.
 	Version = "dev"
@@ -26,12 +23,21 @@ var (
 
 // App represents the CLI application.
 type App struct {
-	cmd *cli.Command
+	cmd    *cli.Command
+	config *config.Config
 }
 
 // New creates a new CLI application.
 func New() *App {
+	// Load configuration
+	cfg, err := config.Load()
+	if err != nil {
+		// Use default config if loading fails
+		cfg = config.NewDefault()
+	}
+
 	return &App{
+		config: cfg,
 		cmd: &cli.Command{
 			Name:  "pho",
 			Usage: "MongoDB document editor - query, edit, and apply changes interactively",
@@ -102,6 +108,44 @@ This will execute the actual database operations.`,
 					Action: applyAction,
 					Flags:  getConnectionFlags(),
 				},
+				{
+					Name:    "config",
+					Aliases: []string{"cfg"},
+					Usage:   "Manage pho configuration",
+					Description: `Manage pho configuration settings.
+Configuration is stored in ~/.pho/config.json and can be overridden by environment variables.`,
+					Commands: []*cli.Command{
+						{
+							Name:    "get",
+							Aliases: []string{"g"},
+							Usage:   "Get configuration value",
+							Description: `Get a configuration value by key.
+Examples:
+  pho config get mongo.uri
+  pho config get app.editor
+  pho config get output.format`,
+							Action: configGetAction,
+						},
+						{
+							Name:    "set",
+							Aliases: []string{"s"},
+							Usage:   "Set configuration value",
+							Description: `Set a configuration value by key.
+Examples:
+  pho config set mongo.uri mongodb://localhost:27017
+  pho config set app.editor nano
+  pho config set output.format json`,
+							Action: configSetAction,
+						},
+						{
+							Name:        "list",
+							Aliases:     []string{"ls"},
+							Usage:       "List all configuration values",
+							Description: `List all current configuration values.`,
+							Action:      configListAction,
+						},
+					},
+				},
 			},
 			Flags:  getCommonFlags(),
 			Action: defaultAction, // Default action when no subcommand is specified
@@ -118,74 +162,104 @@ func (a *App) Run(ctx context.Context, args []string) error {
 
 // getRenderFlags returns common flags used for output rendering.
 func getRenderFlags() []cli.Flag {
+	// Load config to get defaults
+	cfg, _ := config.Load()
+	if cfg == nil {
+		cfg = config.NewDefault()
+	}
+
 	return []cli.Flag{
 		&cli.StringFlag{
 			Name:    "extjson-mode",
 			Aliases: []string{"m"},
-			Value:   "canonical",
+			Value:   cfg.Mongo.ExtJSONMode,
 			Usage:   "ExtJSON output mode: canonical, relaxed, or shell",
+			Sources: cli.EnvVars("PHO_EXTJSON_MODE"),
 		},
 		&cli.BoolFlag{
 			Name:    "compact",
 			Aliases: []string{"C"},
+			Value:   cfg.Output.Compact,
 			Usage:   "Use compact JSON output (no indentation)",
+			Sources: cli.EnvVars("PHO_OUTPUT_COMPACT"),
 		},
 		&cli.BoolFlag{
 			Name:    "line-numbers",
 			Aliases: []string{"n"},
-			Value:   true,
+			Value:   cfg.Output.LineNumbers,
 			Usage:   "Show line numbers in output",
+			Sources: cli.EnvVars("PHO_OUTPUT_LINE_NUMBERS"),
 		},
 	}
 }
 
 // getVerbosityFlags returns common flags used for verbosity control.
 func getVerbosityFlags() []cli.Flag {
+	// Load config to get defaults
+	cfg, _ := config.Load()
+	if cfg == nil {
+		cfg = config.NewDefault()
+	}
+
 	return []cli.Flag{
 		&cli.BoolFlag{
 			Name:    "verbose",
 			Aliases: []string{"v"},
+			Value:   cfg.Output.Verbose,
 			Usage:   "Enable verbose output with detailed progress information",
+			Sources: cli.EnvVars("PHO_OUTPUT_VERBOSE"),
 		},
 		&cli.BoolFlag{
 			Name:    "quiet",
 			Aliases: []string{"Q"},
+			Value:   cfg.Output.Quiet,
 			Usage:   "Suppress all non-essential output (quiet mode)",
+			Sources: cli.EnvVars("PHO_OUTPUT_QUIET"),
 		},
 	}
 }
 
 // getConnectionFlags returns flags for MongoDB connection.
 func getConnectionFlags() []cli.Flag {
+	// Load config to get defaults
+	cfg, _ := config.Load()
+	if cfg == nil {
+		cfg = config.NewDefault()
+	}
+
 	return []cli.Flag{
 		&cli.StringFlag{
 			Name:    "uri",
 			Aliases: []string{"u"},
-			Value:   "mongodb://localhost:27017",
+			Value:   cfg.Mongo.URI,
 			Usage:   "MongoDB URI Connection String",
 			Sources: cli.EnvVars("MONGODB_URI"),
 		},
 		&cli.StringFlag{
 			Name:    "host",
 			Aliases: []string{"H"},
+			Value:   cfg.Mongo.Host,
 			Usage:   "MongoDB hostname (alternative to --uri)",
 			Sources: cli.EnvVars("MONGODB_HOST"),
 		},
 		&cli.StringFlag{
 			Name:    "port",
 			Aliases: []string{"P"},
+			Value:   cfg.Mongo.Port,
 			Usage:   "MongoDB port (used with --host)",
 			Sources: cli.EnvVars("MONGODB_PORT"),
 		},
 		&cli.StringFlag{
 			Name:    "db",
 			Aliases: []string{"d"},
+			Value:   cfg.Mongo.Database,
 			Usage:   "MongoDB database name",
 			Sources: cli.EnvVars("MONGODB_DB"),
 		},
 		&cli.StringFlag{
 			Name:    "collection",
 			Aliases: []string{"c"},
+			Value:   cfg.Mongo.Collection,
 			Usage:   "MongoDB collection name",
 			Sources: cli.EnvVars("MONGODB_COLLECTION"),
 		},
@@ -194,12 +268,19 @@ func getConnectionFlags() []cli.Flag {
 
 // getEditFlags returns flags for the edit command.
 func getEditFlags() []cli.Flag {
+	// Load config to get defaults
+	cfg, _ := config.Load()
+	if cfg == nil {
+		cfg = config.NewDefault()
+	}
+
 	editorFlags := []cli.Flag{
 		&cli.StringFlag{
 			Name:    "editor",
 			Aliases: []string{"e"},
-			Value:   "vim",
+			Value:   cfg.App.Editor,
 			Usage:   "Editor command to use for editing documents",
+			Sources: cli.EnvVars("PHO_EDITOR"),
 		},
 	}
 
@@ -217,33 +298,46 @@ func getReviewFlags() []cli.Flag {
 
 // getCommonFlags returns all flags including connection and query flags.
 func getCommonFlags() []cli.Flag {
+	// Load config to get defaults
+	cfg, _ := config.Load()
+	if cfg == nil {
+		cfg = config.NewDefault()
+	}
+
 	connectionFlags := getConnectionFlags()
 	queryFlags := []cli.Flag{
 		&cli.StringFlag{
 			Name:    "query",
 			Aliases: []string{"q"},
-			Value:   "{}",
+			Value:   cfg.Query.Query,
 			Usage:   "MongoDB query as a JSON document",
+			Sources: cli.EnvVars("PHO_QUERY"),
 		},
 		&cli.Int64Flag{
 			Name:    "limit",
 			Aliases: []string{"l"},
-			Value:   defaultDocumentLimit,
+			Value:   cfg.Query.Limit,
 			Usage:   "Maximum number of documents to retrieve",
+			Sources: cli.EnvVars("PHO_LIMIT"),
 		},
 		&cli.StringFlag{
-			Name:  "sort",
-			Usage: "Sort order for documents (JSON format, e.g. '{\"_id\": 1}')",
+			Name:    "sort",
+			Value:   cfg.Query.Sort,
+			Usage:   "Sort order for documents (JSON format, e.g. '{\"_id\": 1}')",
+			Sources: cli.EnvVars("PHO_SORT"),
 		},
 		&cli.StringFlag{
-			Name:  "projection",
-			Usage: "Projection for documents (JSON format, e.g. '{\"field\": 1}')",
+			Name:    "projection",
+			Value:   cfg.Query.Projection,
+			Usage:   "Projection for documents (JSON format, e.g. '{\"field\": 1}')",
+			Sources: cli.EnvVars("PHO_PROJECTION"),
 		},
 		&cli.StringFlag{
 			Name:    "editor",
 			Aliases: []string{"e"},
-			Value:   "vim",
+			Value:   cfg.App.Editor,
 			Usage:   "Editor command to use for editing documents",
+			Sources: cli.EnvVars("PHO_EDITOR"),
 		},
 		&cli.BoolFlag{
 			Name:  "edit",
@@ -763,6 +857,7 @@ func defaultAction(ctx context.Context, cmd *cli.Command) error {
 		fmt.Fprintf(os.Stderr, "  edit     Edit documents from previous query\n")
 		fmt.Fprintf(os.Stderr, "  review   Review changes made to documents\n")
 		fmt.Fprintf(os.Stderr, "  apply    Apply changes to MongoDB\n")
+		fmt.Fprintf(os.Stderr, "  config   Manage pho configuration\n")
 		fmt.Fprintf(os.Stderr, "  version  Show version information\n\n")
 		fmt.Fprintf(os.Stderr, "Run 'pho --help' for detailed usage information.\n")
 		return errors.New("database name is required")
@@ -770,4 +865,123 @@ func defaultAction(ctx context.Context, cmd *cli.Command) error {
 
 	// If database is specified, run the query action (default behavior)
 	return queryAction(ctx, cmd)
+}
+
+// configGetAction handles the config get command.
+func configGetAction(ctx context.Context, cmd *cli.Command) error {
+	_, _ = ctx, cmd
+
+	args := cmd.Args()
+	if args.Len() == 0 {
+		fmt.Fprintf(os.Stderr, "Error: config key is required\n")
+		fmt.Fprintf(os.Stderr, "Usage: pho config get <key>\n")
+		fmt.Fprintf(os.Stderr, "Example: pho config get mongo.uri\n")
+		return errors.New("config key is required")
+	}
+
+	key := args.First()
+
+	cfg, err := config.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
+		return err
+	}
+
+	value, err := cfg.Get(key)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error getting config value: %v\n", err)
+		return err
+	}
+
+	fmt.Fprintf(os.Stdout, "%v\n", value)
+	return nil
+}
+
+// configSetAction handles the config set command.
+func configSetAction(ctx context.Context, cmd *cli.Command) error {
+	_, _ = ctx, cmd
+
+	args := cmd.Args()
+	if args.Len() < 2 {
+		fmt.Fprintf(os.Stderr, "Error: config key and value are required\n")
+		fmt.Fprintf(os.Stderr, "Usage: pho config set <key> <value>\n")
+		fmt.Fprintf(os.Stderr, "Example: pho config set mongo.uri mongodb://localhost:27017\n")
+		return errors.New("config key and value are required")
+	}
+
+	key := args.Get(0)
+	value := args.Get(1)
+
+	cfg, err := config.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
+		return err
+	}
+
+	if err := cfg.Set(key, value); err != nil {
+		fmt.Fprintf(os.Stderr, "Error setting config value: %v\n", err)
+		return err
+	}
+
+	if err := cfg.Save(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error saving config: %v\n", err)
+		return err
+	}
+
+	fmt.Fprintf(os.Stdout, "Set %s = %s\n", key, value)
+	return nil
+}
+
+// configListAction handles the config list command.
+func configListAction(ctx context.Context, cmd *cli.Command) error {
+	_, _ = ctx, cmd
+
+	cfg, err := config.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
+		return err
+	}
+
+	fmt.Fprintf(os.Stdout, "Current configuration:\n\n")
+
+	categories := map[string][]string{
+		"MongoDB": {
+			"mongo.uri", "mongo.host", "mongo.port", "mongo.database", "mongo.collection", "mongo.extjson_mode",
+		},
+		"PostgreSQL": {
+			"postgres.host", "postgres.port", "postgres.database", "postgres.schema", "postgres.user", "postgres.ssl_mode",
+		},
+		"Database": {
+			"database.type",
+		},
+		"Query": {
+			"query.query", "query.limit", "query.sort", "query.projection",
+		},
+		"Application": {
+			"app.editor", "app.timeout",
+		},
+		"Output": {
+			"output.format", "output.line_numbers", "output.compact", "output.verbose", "output.quiet",
+		},
+		"Directories": {
+			"directories.data_dir", "directories.config_dir",
+		},
+	}
+
+	for category, categoryKeys := range categories {
+		fmt.Fprintf(os.Stdout, "[%s]\n", category)
+		for _, key := range categoryKeys {
+			if value, err := cfg.Get(key); err == nil {
+				// Show empty values as <empty>
+				displayValue := fmt.Sprintf("%v", value)
+				if displayValue == "" {
+					displayValue = "<empty>"
+				}
+				fmt.Fprintf(os.Stdout, "  %-20s = %s\n", key, displayValue)
+			}
+		}
+		fmt.Fprintf(os.Stdout, "\n")
+	}
+
+	return nil
 }
